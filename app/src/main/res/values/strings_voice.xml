@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 음성 안내(TTS) 문구. 화면에 쓰지 않는다. 숫자 단위는 TTS가 읽기 좋게 한글로 적는다(퍼센트, 킬로미터). -->
+<resources>
+    <!-- 제안 -->
+    <string name="voice_offer_nap">%1$d퍼센트까지 약 %2$d분 남았어요. %3$d분 파워냅 어때요?</string>
+    <string name="voice_offer_breathing">충전이 약 %1$d분 뒤에 끝나요. %2$d분 동안 숨을 고르며 쉬어 갈까요?</string>
+    <string name="voice_offer_choose">충전하는 동안 쉬어 갈까요? %1$d분이나 %2$d분 중에 골라 주세요.</string>
+
+    <!-- 안전 확인 -->
+    <string name="voice_rear_seat_question">뒷좌석에 사람이나 짐이 있나요?</string>
+    <string name="voice_rear_seat_retry">잘 못 들었어요. 뒷좌석에 사람이나 짐이 있으면 있어요, 없으면 없어요 하고 말해 주세요.</string>
+    <string name="voice_rear_seat_no_answer">대답을 듣지 못해서 시트는 그대로 둘게요.</string>
+    <string name="voice_door_question">문이 모두 닫혀 있나요?</string>
+    <string name="voice_wait_door">문을 닫아 주세요.</string>
+    <string name="voice_wait_parking_brake">주차 브레이크를 걸어 주세요.</string>
+    <string name="voice_wait_door_and_parking_brake">문을 닫고 주차 브레이크를 걸어 주세요.</string>
+    <string name="voice_start_blocked_gear">기어를 주차 위치에 두어야 시작할 수 있어요.</string>
+    <string name="voice_start_blocked_charging">충전기를 연결해야 시작할 수 있어요.</string>
+    <string name="voice_start_blocked">지금은 시작할 수 없어요.</string>
+
+    <!-- 준비 -->
+    <string name="voice_preparing_seat">시트를 눕힐게요. 편하게 기대세요.</string>
+    <string name="voice_preparing_no_seat">편안하게 쉴 수 있게 준비할게요.</string>
+
+    <!-- 호흡 안내: 짧고 낮은 톤. 한 문장씩 간격을 두고 말한다 -->
+    <string-array name="voice_breathing_guide">
+        <item>눈을 감고, 편하게 기대세요.</item>
+        <item>코로 천천히 숨을 들이쉬세요.</item>
+        <item>잠깐 멈췄다가, 입으로 길게 내쉬세요.</item>
+        <item>어깨에 힘을 빼고, 한 번 더 들이쉬세요.</item>
+        <item>길게 내쉬면서, 몸을 편하게 두세요.</item>
+        <item>이제 편히 쉬세요. 시간이 되면 깨워 드릴게요.</item>
+    </string-array>
+
+    <!-- 수면 중 -->
+    <string name="voice_remaining_minutes">%1$d분 남았어요.</string>
+    <string name="voice_remaining_soon">이제 곧 일어날 시간이에요.</string>
+    <string name="voice_extend_granted">%1$d분 더 쉬세요.</string>
+    <string name="voice_extend_denied_charge_ends_soon">충전이 곧 끝나서 더 늘릴 수 없어요.</string>
+    <string name="voice_extend_denied_max_total">더 늘릴 수 없어요. 한 번에 30분까지만 쉴 수 있어요.</string>
+    <string name="voice_extend_denied_not_napping">지금은 쉬는 중이 아니에요.</string>
+
+    <!-- 기상: 또렷하게 -->
+    <string name="voice_waking_timer">일어날 시간이에요. 천천히 일어나세요.</string>
+    <string name="voice_waking_charge_nearly_done">충전이 곧 끝나요. 일어날 시간이에요.</string>
+    <string name="voice_waking_charge_complete">충전이 끝났어요. 일어날 시간이에요.</string>
+    <string name="voice_waking_charging_interrupted">충전이 멈췄어요. 일어나서 충전 상태를 확인해 주세요.</string>
+    <string name="voice_waking_user">네, 휴식을 마칠게요.</string>
+
+    <!-- 브리핑 -->
+    <string name="voice_briefing_battery_and_range">배터리 %1$d퍼센트, 주행 가능 거리 %2$d킬로미터예요.</string>
+    <string name="voice_briefing_battery">배터리는 %1$d퍼센트예요.</string>
+    <string name="voice_briefing_range">주행 가능 거리는 %1$d킬로미터예요.</string>
+    <string name="voice_briefing_rested">%1$d분 쉬셨어요.</string>
+    <string name="voice_briefing_charging_interrupted">충전이 중간에 멈췄어요.</string>
+    <string name="voice_briefing_failures">시트나 공조 설정 중 일부가 적용되지 않았어요.</string>
+    <string name="voice_briefing_done">휴식을 마쳤어요.</string>
+
+    <!-- 중단 -->
+    <string name="voice_aborted_gear_seat">기어가 바뀌어 휴식을 멈췄어요. 시트를 원래대로 돌릴게요.</string>
+    <string name="voice_aborted_gear">기어가 바뀌어 휴식을 멈췄어요. 실내 설정을 원래대로 돌릴게요.</string>
+    <string name="voice_aborted_door_seat">문이 열려 휴식을 멈췄어요. 문을 닫으면 시트를 되돌릴게요.</string>
+    <string name="voice_aborted_door">문이 열려 휴식을 멈췄어요. 문을 닫으면 실내 설정을 되돌릴게요.</string>
+</resources>
