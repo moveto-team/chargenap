@@ -43,7 +43,7 @@ SDKMANAGER="$SDK_DIR/cmdline-tools/latest/bin/sdkmanager"
 echo "[bootstrap] Android SDK 패키지 설치"
 yes | "$SDKMANAGER" --sdk_root="$SDK_DIR" --licenses >/dev/null 2>&1 || true
 "$SDKMANAGER" --sdk_root="$SDK_DIR" \
-  "platform-tools" "platforms;android-35" "build-tools;35.0.0" "emulator" | grep -v -E '^\[=* *\]' || true
+  "platform-tools" "platforms;android-35" "build-tools;35.0.0" "emulator" 2>&1 | tr "\r" "\n" | grep -E "^(Installing|Warning|Error)" || true
 
 echo "[bootstrap] 완료"
 "$JAVA_HOME/bin/java" -version 2>&1 | head -1
