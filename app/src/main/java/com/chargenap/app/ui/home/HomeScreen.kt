@@ -129,7 +129,7 @@ private fun ChargeSummary(state: NapUiState, modifier: Modifier = Modifier) {
     val charging = state.chargingState == ChargingState.CHARGING
     val chargeTone = charging || state.chargingState == ChargingState.COMPLETE
     Column(
-        modifier = modifier.padding(bottom = 48.dp),
+        modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {

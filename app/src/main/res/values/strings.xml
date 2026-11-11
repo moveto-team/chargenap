@@ -91,6 +91,7 @@
 
     <!-- 기상 -->
     <string name="wake_title">일어날 시간이에요</string>
+    <string name="wake_title_user">일어나는 중이에요</string>
     <string name="wake_restoring">시트와 공조를 되돌리고 있어요</string>
     <string name="wake_reason_timer">맞춰 둔 시간이 다 됐어요</string>
     <string name="wake_reason_charge_nearly_done">충전이 곧 끝나요</string>
@@ -101,13 +102,14 @@
     <!-- 브리핑 -->
     <string name="briefing_title">잘 쉬셨어요</string>
     <string name="briefing_title_interrupted">충전이 멈춰서 깨워 드렸어요</string>
+    <string name="briefing_interrupted_body">충전기를 확인해 주세요</string>
     <string name="briefing_battery">잔량</string>
     <string name="briefing_battery_change">%1$s → %2$s</string>
     <string name="briefing_battery_unknown">잔량을 읽지 못했어요</string>
     <string name="briefing_range">주행 가능 거리</string>
     <string name="briefing_range_unknown">거리를 읽지 못했어요</string>
     <string name="briefing_slept">쉰 시간</string>
-    <string name="briefing_planned">맞춘 시간 %1$d분</string>
+    <string name="briefing_slept_breathing">호흡한 시간</string>
     <string name="briefing_failures_title">확인이 필요해요</string>
     <string name="failure_seat">시트를 제대로 움직이지 못했어요. 등받이를 직접 확인해 주세요</string>
     <string name="failure_climate">공조를 제대로 바꾸지 못했어요. 온도와 풍량을 직접 확인해 주세요</string>
@@ -146,6 +148,17 @@
     <string name="report_item_breathing">%1$d분 호흡</string>
     <string name="report_item_breathing_under_minute">1분 미만 호흡</string>
     <string name="report_item_battery">%1$d%% → %2$d%%</string>
+    <string name="report_item_date">%1$d월 %2$d일 %3$s</string>
+    <string name="report_item_detail">%1$s · %2$s</string>
+    <string-array name="report_weekdays">
+        <item>월</item>
+        <item>화</item>
+        <item>수</item>
+        <item>목</item>
+        <item>금</item>
+        <item>토</item>
+        <item>일</item>
+    </string-array>
     <string name="report_reason_timer">타이머 종료</string>
     <string name="report_reason_charge_nearly_done">충전 완료 전</string>
     <string name="report_reason_charge_complete">충전 완료</string>

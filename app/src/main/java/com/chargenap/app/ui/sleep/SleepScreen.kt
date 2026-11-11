@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
@@ -109,7 +110,8 @@ fun SleepScreen(
             ),
     ) {
         Column(
-            modifier = Modifier.align(Alignment.TopStart).padding(start = 56.dp, top = 40.dp),
+            // 위쪽은 DEMO 배지와 조작 패널 자리라 왼쪽 아래 구석에 둔다.
+            modifier = Modifier.align(Alignment.BottomStart).padding(start = 56.dp, bottom = 44.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             if (mode == SessionMode.BREATHING) {
@@ -128,7 +130,11 @@ fun SleepScreen(
             }
         }
 
-        Column(Modifier.align(Alignment.Center), horizontalAlignment = Alignment.CenterHorizontally) {
+        // 아래쪽 버튼과 안내가 들어갈 자리를 두려고 정중앙보다 조금 위에 둔다.
+        Column(
+            modifier = Modifier.align(Alignment.Center).offset(y = (-28).dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
             Text(
                 text = formatClock(remainingSeconds),
                 style = NapType.Countdown,

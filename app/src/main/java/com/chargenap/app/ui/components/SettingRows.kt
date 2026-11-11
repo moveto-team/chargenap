@@ -58,7 +58,7 @@ private fun SettingLabel(label: String, caption: String?, enabled: Boolean, modi
 /**
  * 값을 한 단계씩 올리고 내리는 줄: 이름 | − 값 +.
  *
- * @param caption 이름 아래의 설명. 지원되지 않는 항목의 안내에도 쓴다
+ * @param caption 줄 아래에 붙는 설명. 조절 버튼 때문에 이름 칸이 좁아 줄 전체 너비로 따로 쓴다
  * @param enabled false면 값과 버튼을 흐리게 하고 누를 수 없다
  */
 @Composable
@@ -75,22 +75,60 @@ fun StepperRow(
     canDecrease: Boolean = true,
     canIncrease: Boolean = true,
 ) {
+    Column(modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth().heightIn(min = 96.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            SettingLabel(label, null, enabled, Modifier.weight(1f))
+            Spacer(Modifier.width(16.dp))
+            StepButton(Glyph.Minus, decreaseLabel, enabled && canDecrease, onDecrease)
+            Text(
+                text = valueText,
+                style = NapType.H2,
+                color = if (enabled) NapColors.TextPrimary else NapColors.TextTertiary,
+                textAlign = TextAlign.Center,
+                maxLines = 1,
+                modifier = Modifier.width(140.dp),
+            )
+            StepButton(Glyph.Plus, increaseLabel, enabled && canIncrease, onIncrease)
+        }
+        if (caption != null) {
+            Text(
+                text = caption,
+                style = NapType.Caption,
+                color = NapColors.TextTertiary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.offset(y = (-10).dp),
+            )
+        }
+    }
+}
+
+/** 이 차량에서 쓸 수 없는 설정 줄: 이름 | 안내 문구. 조절 버튼이나 스위치는 그리지 않는다. */
+@Composable
+fun UnavailableRow(label: String, message: String, modifier: Modifier = Modifier) {
     Row(
         modifier = modifier.fillMaxWidth().heightIn(min = 96.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        SettingLabel(label, caption, enabled, Modifier.weight(1f))
-        Spacer(Modifier.width(16.dp))
-        StepButton(Glyph.Minus, decreaseLabel, enabled && canDecrease, onDecrease)
         Text(
-            text = valueText,
-            style = NapType.H2,
-            color = if (enabled) NapColors.TextPrimary else NapColors.TextTertiary,
-            textAlign = TextAlign.Center,
+            text = label,
+            style = NapType.Title,
+            color = NapColors.TextTertiary,
             maxLines = 1,
-            modifier = Modifier.width(168.dp),
         )
-        StepButton(Glyph.Plus, increaseLabel, enabled && canIncrease, onIncrease)
+        Spacer(Modifier.width(16.dp))
+        Text(
+            text = message,
+            style = NapType.BodySmall,
+            color = NapColors.TextTertiary,
+            textAlign = TextAlign.End,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
     }
 }
 

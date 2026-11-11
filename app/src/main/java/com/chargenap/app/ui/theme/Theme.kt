@@ -74,6 +74,9 @@ object NapType {
     /** 브리핑·리포트의 큰 수치. */
     val Stat = style(64, FontWeight.Medium, lineHeight = 1.15f, tabular = true)
 
+    /** 기상 화면처럼 한 문장만 있는 화면의 제목. */
+    val Display = style(64, FontWeight.SemiBold, lineHeight = 1.2f)
+
     val H1 = style(46, FontWeight.SemiBold, lineHeight = 1.25f)
     val H2 = style(38, FontWeight.SemiBold, lineHeight = 1.25f)
     val Title = style(31, FontWeight.Medium)
