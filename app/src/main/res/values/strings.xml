@@ -1,4 +1,187 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">차지냅</string>
+
+    <!-- 공통 -->
+    <string name="demo_badge" translatable="false">DEMO</string>
+    <string name="action_back">뒤로</string>
+    <string name="action_confirm">확인</string>
+    <string name="action_cancel">취소</string>
+    <string name="unit_minutes">분</string>
+    <string name="unit_under_minute">분 미만</string>
+    <string name="unit_percent" translatable="false" formatted="false">%</string>
+    <string name="unit_km" translatable="false">km</string>
+    <string name="unit_count">회</string>
+    <string name="value_unknown" translatable="false">–</string>
+    <string name="minutes_format">%1$d분</string>
+
+    <!-- 충전 상태 -->
+    <string name="charging_unknown">충전 상태를 읽을 수 없어요</string>
+    <string name="charging_not_connected">충전기 연결 안 됨</string>
+    <string name="charging_connected_idle">충전 대기 중</string>
+    <string name="charging_charging">충전 중</string>
+    <string name="charging_complete">충전 완료</string>
+
+    <!-- 홈 -->
+    <string name="home_nav_report">리포트</string>
+    <string name="home_nav_settings">설정</string>
+    <string name="home_battery_unknown">잔량을 읽을 수 없어요</string>
+    <string name="home_remaining_to_target">%1$d%%까지 약 %2$d분</string>
+    <string name="home_remaining_measuring">남은 시간을 재는 중이에요</string>
+    <string name="home_fallback_demo">차량 서비스에 연결하지 못해 데모 모드로 실행 중이에요</string>
+    <string name="home_voice_hint">“시작해 줘”라고 말해도 돼요</string>
+    <string name="home_offer_label">추천</string>
+    <string name="home_offer_nap_title">%1$d분 파워냅 어때요?</string>
+    <string name="home_offer_nap_body">%1$d%%까지 약 %2$d분 남았어요</string>
+    <string name="home_offer_breathing_title">호흡 %1$d분 어때요?</string>
+    <string name="home_offer_breathing_body">충전이 곧 끝나요. 잠깐 숨만 고르세요</string>
+    <string name="home_offer_choose_title">얼마나 쉴까요?</string>
+    <string name="home_offer_choose_body">충전 속도를 재는 중이에요. 고른 시간에 깨워 드려요</string>
+    <string name="home_offer_start">시작</string>
+    <string name="home_offer_decline">괜찮아요</string>
+    <string name="home_pick_title">얼마나 쉴까요?</string>
+    <string name="home_pick_body">충전이 끝나기 전에 깨워 드려요</string>
+    <string name="home_pick_start">%1$d분 파워냅 시작</string>
+    <string name="home_blocked_title">충전하는 동안 쉬어 가세요</string>
+    <string name="home_blocked_start">파워냅 시작</string>
+
+    <!-- 시작할 수 없는 이유 -->
+    <string name="block_charger_not_connected">충전기를 연결하면 시작할 수 있어요</string>
+    <string name="block_charge_complete">충전이 끝났어요. 다음 충전 때 쉬어 가세요</string>
+    <string name="block_charge_unknown">충전 상태를 읽을 수 없어 시작할 수 없어요</string>
+    <string name="block_gear_not_park">기어를 P에 두면 시작할 수 있어요</string>
+    <string name="block_gear_unknown">기어 상태를 확인할 수 없어 시작할 수 없어요</string>
+
+    <!-- 안전 확인 -->
+    <string name="safety_title">안전 확인</string>
+    <string name="safety_subtitle_nap">%1$d분 파워냅을 준비해요</string>
+    <string name="safety_subtitle_breathing">호흡 %1$d분을 준비해요</string>
+    <string name="safety_item_gear">기어 P</string>
+    <string name="safety_item_brake">주차 브레이크</string>
+    <string name="safety_item_charging">충전기 연결</string>
+    <string name="safety_item_doors">도어 닫힘</string>
+    <string name="safety_pass">확인했어요</string>
+    <string name="safety_skipped">확인할 수 없어 건너뜀</string>
+    <string name="safety_needs_confirm">직접 확인해 주세요</string>
+    <string name="safety_fail_gear">기어가 P가 아니에요</string>
+    <string name="safety_fail_brake">주차 브레이크가 풀려 있어요</string>
+    <string name="safety_fail_charging">충전기가 연결되지 않았어요</string>
+    <string name="safety_fail_doors">문이 열려 있어요</string>
+    <string name="safety_rear_question">뒷좌석에 사람이나 짐이 있나요?</string>
+    <string name="safety_rear_body">없으면 등받이를 눕혀요. 있으면 그대로 둘게요</string>
+    <string name="safety_rear_clear">없어요</string>
+    <string name="safety_rear_occupied">있어요</string>
+    <string name="safety_door_question">문이 모두 닫혀 있나요?</string>
+    <string name="safety_door_body">이 차량은 문 상태를 읽을 수 없어요</string>
+    <string name="safety_door_confirm">닫혀 있어요</string>
+    <string name="safety_wait_door_title">문을 닫아 주세요</string>
+    <string name="safety_wait_brake_title">주차 브레이크를 걸어 주세요</string>
+    <string name="safety_wait_body">확인되면 바로 이어서 진행해요</string>
+    <string name="safety_checking_title">확인하고 있어요</string>
+    <string name="preparing_title">편안한 자리를 준비하고 있어요</string>
+    <string name="preparing_body_seat">등받이가 천천히 움직여요</string>
+    <string name="preparing_body_climate">공조를 맞추고 있어요</string>
+
+    <!-- 수면 -->
+    <string name="sleep_hint_long_press">길게 누르면 일어나요</string>
+    <string name="sleep_timer_only">타이머로만 동작</string>
+    <string name="sleep_mode_breathing">호흡 모드</string>
+    <string name="sleep_extend">5분 더</string>
+    <string name="sleep_wake_now">지금 일어나기</string>
+
+    <!-- 기상 -->
+    <string name="wake_title">일어날 시간이에요</string>
+    <string name="wake_restoring">시트와 공조를 되돌리고 있어요</string>
+    <string name="wake_reason_timer">맞춰 둔 시간이 다 됐어요</string>
+    <string name="wake_reason_charge_nearly_done">충전이 곧 끝나요</string>
+    <string name="wake_reason_charge_complete">충전이 끝났어요</string>
+    <string name="wake_reason_charging_interrupted">충전이 멈췄어요. 충전기를 확인해 주세요</string>
+    <string name="wake_reason_user">직접 일어나셨어요</string>
+
+    <!-- 브리핑 -->
+    <string name="briefing_title">잘 쉬셨어요</string>
+    <string name="briefing_title_interrupted">충전이 멈춰서 깨워 드렸어요</string>
+    <string name="briefing_battery">잔량</string>
+    <string name="briefing_battery_change">%1$s → %2$s</string>
+    <string name="briefing_battery_unknown">잔량을 읽지 못했어요</string>
+    <string name="briefing_range">주행 가능 거리</string>
+    <string name="briefing_range_unknown">거리를 읽지 못했어요</string>
+    <string name="briefing_slept">쉰 시간</string>
+    <string name="briefing_planned">맞춘 시간 %1$d분</string>
+    <string name="briefing_failures_title">확인이 필요해요</string>
+    <string name="failure_seat">시트를 제대로 움직이지 못했어요. 등받이를 직접 확인해 주세요</string>
+    <string name="failure_climate">공조를 제대로 바꾸지 못했어요. 온도와 풍량을 직접 확인해 주세요</string>
+    <string name="failure_other">일부 설정을 적용하지 못했어요. 직접 확인해 주세요</string>
+
+    <!-- 중단 안내 -->
+    <string name="aborted_title_gear">기어가 바뀌어 휴식을 멈췄어요</string>
+    <string name="aborted_title_door">문이 열려 휴식을 멈췄어요</string>
+    <string name="aborted_wait_door">문을 닫으면 시트를 되돌려요</string>
+    <string name="aborted_wait_door_unknown">문을 닫은 뒤 아래 버튼을 눌러 주세요</string>
+    <string name="aborted_restore_now">지금 되돌리기</string>
+    <string name="aborted_restoring">시트와 공조를 되돌리고 있어요</string>
+    <string name="aborted_restored">시트와 공조를 원래대로 되돌렸어요</string>
+    <string name="aborted_nothing_to_restore">바꾼 것이 없어 그대로 두었어요</string>
+    <string name="aborted_restore_failed_seat">시트를 되돌리지 못했어요. 등받이를 직접 세워 주세요</string>
+    <string name="aborted_restore_failed_climate">공조를 되돌리지 못했어요. 온도와 풍량을 직접 확인해 주세요</string>
+    <string name="aborted_restore_failed_other">일부를 되돌리지 못했어요. 직접 확인해 주세요</string>
+
+    <!-- 짧은 안내 -->
+    <string name="notice_extend_granted">%1$d분 더 쉬세요</string>
+    <string name="notice_extend_denied_max_total">30분을 넘겨서는 쉴 수 없어요</string>
+    <string name="notice_extend_denied_charge_ends_soon">충전이 곧 끝나서 더 늘릴 수 없어요</string>
+    <string name="notice_extend_denied_not_napping">지금은 시간을 늘릴 수 없어요</string>
+
+    <!-- 리포트 -->
+    <string name="report_title">휴식 리포트</string>
+    <string name="report_week_count">최근 7일 휴식</string>
+    <string name="report_week_minutes">쉰 시간</string>
+    <string name="report_chart_title">날짜별 쉰 시간(분)</string>
+    <string name="report_today">오늘</string>
+    <string name="report_recent_title">최근 휴식</string>
+    <string name="report_empty_title">아직 휴식 기록이 없어요</string>
+    <string name="report_empty_body">충전하는 동안 한 번 쉬어 보세요</string>
+    <string name="report_item_nap">%1$d분 파워냅</string>
+    <string name="report_item_nap_under_minute">1분 미만 파워냅</string>
+    <string name="report_item_breathing">%1$d분 호흡</string>
+    <string name="report_item_breathing_under_minute">1분 미만 호흡</string>
+    <string name="report_item_battery">%1$d%% → %2$d%%</string>
+    <string name="report_reason_timer">타이머 종료</string>
+    <string name="report_reason_charge_nearly_done">충전 완료 전</string>
+    <string name="report_reason_charge_complete">충전 완료</string>
+    <string name="report_reason_charging_interrupted">충전 중단</string>
+    <string name="report_reason_user">직접 기상</string>
+
+    <!-- 설정 -->
+    <string name="settings_title">설정</string>
+    <string name="settings_group_preset">수면 프리셋</string>
+    <string name="settings_group_general">일반</string>
+    <string name="settings_recline">등받이 눕힘</string>
+    <string name="settings_temperature">온도</string>
+    <string name="settings_fan">풍량</string>
+    <string name="settings_target">목표 잔량</string>
+    <string name="settings_target_caption">여기까지 충전된다고 보고 깨워요</string>
+    <string name="settings_seat_control">시트 자동 조절</string>
+    <string name="settings_seat_control_caption">끄면 등받이를 움직이지 않아요</string>
+    <string name="settings_voice">음성 안내</string>
+    <string name="settings_voice_caption">말로 시작하고 안내를 들어요</string>
+    <string name="settings_demo">데모 모드</string>
+    <string name="settings_demo_caption">가상 차량으로 빠르게 체험해요</string>
+    <string name="settings_unsupported">이 차량에서는 지원되지 않아요</string>
+    <string name="settings_value_percent">%1$d%%</string>
+    <string name="settings_value_temperature">%1$s℃</string>
+    <string name="settings_value_fan">%1$d단계</string>
+    <string name="settings_decrease">%1$s 줄이기</string>
+    <string name="settings_increase">%1$s 늘리기</string>
+
+    <!-- DEMO 조작 패널 -->
+    <string name="demo_panel_title">DEMO 조작</string>
+    <string name="demo_panel_close">접기</string>
+    <string name="demo_start_charging">충전 시작</string>
+    <string name="demo_interrupt_charging">충전 중단</string>
+    <string name="demo_complete_charging">충전 완료</string>
+    <string name="demo_door_open">도어 열기</string>
+    <string name="demo_door_close">도어 닫기</string>
+    <string name="demo_gear_to_d">기어 D로</string>
+    <string name="demo_gear_to_p">기어 P로</string>
 </resources>
