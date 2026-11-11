@@ -44,6 +44,7 @@ class NapSessionEngine(
     private val scope: CoroutineScope,
     private val config: StateFlow<SessionConfig>,
     private val tickMillis: Long = 1_000,
+    private val timings: SessionTimings = SessionTimings(),
 ) {
     private val _state = MutableStateFlow<NapSessionState>(NapSessionState.Idle)
     val state: StateFlow<NapSessionState> = _state.asStateFlow()
@@ -449,7 +450,7 @@ class NapSessionEngine(
             return beginWaking(s, if (wakeAt < s.timerEndAtMillis) WakeReason.CHARGE_NEARLY_DONE else WakeReason.TIMER)
         }
 
-        if (!s.breathingGuideNotified && v.now >= s.startedAtMillis + BREATHING_GUIDE_MILLIS) {
+        if (!s.breathingGuideNotified && v.now >= s.startedAtMillis + timings.breathingGuideMillis) {
             s.breathingGuideNotified = true
             notify(SessionNotice.BreathingGuideFinished)
         }
@@ -529,7 +530,7 @@ class NapSessionEngine(
                 null
             } else {
                 guarded(seat = false, climate = true) { gateway.applyWakePreset() }
-                    .also { waitOnSessionClock(WAKE_BREEZE_MILLIS) }
+                    .also { waitOnSessionClock(timings.wakeBreezeMillis) }
             }
             val restore = restoreCabin(s)
             val rangeKm = try {
@@ -635,7 +636,7 @@ class NapSessionEngine(
             return
         }
         if (!current.restoring) {
-            if (v.now >= s.abortFinishedAtMillis + ABORT_LINGER_MILLIS) endAbortedSession()
+            if (v.now >= s.abortFinishedAtMillis + timings.abortLingerMillis) endAbortedSession()
             return
         }
         if (current.reason != AbortReason.DOOR_OPENED) return
@@ -810,9 +811,6 @@ class NapSessionEngine(
         const val MIN_NAP_MINUTES = 10
         const val MAX_TOTAL_MILLIS = 30 * MINUTE_MILLIS
         const val CHARGE_MARGIN_MILLIS = 5 * MINUTE_MILLIS
-        const val BREATHING_GUIDE_MILLIS = 2 * MINUTE_MILLIS
-        const val WAKE_BREEZE_MILLIS = 20_000L
-        const val ABORT_LINGER_MILLIS = 15_000L
         const val RESCHEDULE_NOTICE_MILLIS = MINUTE_MILLIS
         const val EVENT_BUFFER = 64
     }
