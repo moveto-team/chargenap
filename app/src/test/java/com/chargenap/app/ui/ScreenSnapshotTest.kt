@@ -336,6 +336,49 @@ class ScreenSnapshotTest {
         ).copy(gearInPark = false, startBlockers = allPass.copy(gear = CheckResult.FAIL)),
     )
 
+    // ---------------------------------------------------------------- 16:9가 아닌 화면
+
+    @Test
+    @Config(qualifiers = "w2880dp-h1080dp-land-mdpi")
+    fun ultraWide_home() = capture(
+        "90_ultrawide_home",
+        charging(NapSessionState.Offer(Recommendation.Nap(20, 27)), demo = true),
+    )
+
+    @Test
+    @Config(qualifiers = "w2880dp-h1080dp-land-mdpi")
+    fun ultraWide_briefingFailures() = capture(
+        "91_ultrawide_briefing",
+        charging(
+            NapSessionState.Briefing(summary.copy(rangeKm = null, failures = listOf("seat: timeout", "climate: rejected"))),
+            demo = true,
+        ),
+    )
+
+    @Test
+    @Config(qualifiers = "w1600dp-h1200dp-land-mdpi")
+    fun fourByThree_safety() = capture(
+        "92_4x3_safety",
+        charging(
+            NapSessionState.SafetyCheck(
+                minutes = 20,
+                mode = SessionMode.NAP,
+                report = allPass.copy(parkingBrake = CheckResult.FAIL),
+                rearSeatQuestionPending = false,
+                doorConfirmPending = false,
+            ),
+            demo = true,
+        ),
+    )
+
+    @Test
+    @Config(qualifiers = "w1600dp-h1200dp-land-mdpi")
+    fun fourByThree_settings() = capture(
+        "93_4x3_settings",
+        charging(NapSessionState.Idle, demo = false),
+        route = NapRoute.SETTINGS,
+    )
+
     // ---------------------------------------------------------------- 리포트와 설정
 
     @Test

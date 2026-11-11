@@ -250,7 +250,7 @@ private fun RecordRow(record: SessionRecord, zone: ZoneId) {
     val detail = stringResource(R.string.report_item_detail, date, stringResource(wakeReasonShortLabel(record.wakeReason)))
     val start = record.batteryStartPercent
     val end = record.batteryEndPercent
-    Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(
                 text = title,
