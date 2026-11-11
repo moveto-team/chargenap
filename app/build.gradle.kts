@@ -17,6 +17,8 @@ val keystoreProperties = Properties().apply {
 android {
     namespace = "com.chargenap.app"
     compileSdk = 35
+    // AAOS Car API(CarPropertyManager). 자동차가 아닌 기기에는 없으므로 vehicle/에서 방어적으로 쓴다
+    useLibrary("android.car")
 
     defaultConfig {
         applicationId = "com.chargenap.app"
@@ -88,6 +90,8 @@ dependencies {
     implementation(libs.pleos.vehicle)
     implementation(libs.pleos.stt)
     implementation(libs.pleos.tts)
+    // Vehicle SDK가 권한 검사에 런타임으로 쓴다(sdk-notes 1.1). Kotlin 버전과 맞춘다
+    implementation(kotlin("reflect"))
 
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.test.manifest)

@@ -27,3 +27,6 @@ Thumbs.db
 
 # Claude Code 로컬 설정
 .claude/settings.local.json
+
+# 에이전트 작업용 worktree
+.claude/worktrees/

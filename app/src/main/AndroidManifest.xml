@@ -1,7 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
-    <!-- Pleos Connect SDK 권한. 목록의 근거는 docs/sdk-notes.md "빌드 설정" -->
+    <!-- Pleos Vehicle SDK (전부 protectionLevel normal). 근거: docs/sdk-notes.md 1.2 -->
+    <uses-permission android:name="pleos.car.permission.CAR_ENERGY" />
+    <uses-permission android:name="pleos.car.permission.CAR_DRIVE" />
+    <uses-permission android:name="pleos.car.permission.CAR_SEATS" />
+    <uses-permission android:name="pleos.car.permission.CONTROL_CAR_SEATS" />
+    <uses-permission android:name="pleos.car.permission.CAR_CLIMATE" />
+    <uses-permission android:name="pleos.car.permission.CONTROL_CAR_CLIMATE" />
+    <uses-permission android:name="pleos.car.permission.CAR_DOORS" />
+    <uses-permission android:name="pleos.car.permission.CAR_INFO" />
+
+    <!-- Pleos 음성 SDK -->
+    <uses-permission android:name="pleos.car.permission.TTS_SERVICE" />
+    <uses-permission android:name="pleos.car.permission.STT_SERVICE" />
+
+    <!-- AAOS Car API 보강 신호(주차 브레이크, 커넥터 연결, 충전 상태). 근거: docs/sdk-notes.md 13절.
+         CAR_ENERGY는 dangerous라 실행 중 요청하며, 거부되면 SDK 값만으로 동작한다. -->
+    <uses-permission android:name="android.car.permission.CAR_POWERTRAIN" />
+    <uses-permission android:name="android.car.permission.CAR_ENERGY_PORTS" />
+    <uses-permission android:name="android.car.permission.CAR_ENERGY" />
 
     <uses-feature
         android:name="android.hardware.type.automotive"
