@@ -3,6 +3,7 @@ package com.chargenap.app.ui.components
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -106,28 +107,27 @@ fun StepperRow(
     }
 }
 
-/** 이 차량에서 쓸 수 없는 설정 줄: 이름 | 안내 문구. 조절 버튼이나 스위치는 그리지 않는다. */
+/** 이 차량에서 쓸 수 없는 설정 줄: 이름과 그 아래 안내 문구. 조절 버튼이나 스위치는 그리지 않는다. */
 @Composable
 fun UnavailableRow(label: String, message: String, modifier: Modifier = Modifier) {
-    Row(
+    Column(
         modifier = modifier.fillMaxWidth().heightIn(min = 96.dp),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.Center,
     ) {
         Text(
             text = label,
             style = NapType.Title,
             color = NapColors.TextTertiary,
             maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
         )
-        Spacer(Modifier.width(16.dp))
+        Spacer(Modifier.height(2.dp))
         Text(
             text = message,
             style = NapType.BodySmall,
             color = NapColors.TextTertiary,
-            textAlign = TextAlign.End,
-            maxLines = 2,
+            maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.weight(1f),
         )
     }
 }

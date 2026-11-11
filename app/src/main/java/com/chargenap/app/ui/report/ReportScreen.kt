@@ -30,6 +30,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -159,7 +160,8 @@ private fun WeekChart(perDayMinutes: List<Int>, todayEpochDay: Long, modifier: M
                         val color = when {
                             minutes <= 0 -> NapColors.Outline
                             today -> NapColors.Accent
-                            else -> NapColors.Accent.copy(alpha = 0.45f)
+                            // 반투명으로 칠하면 둥근 막대와 아래쪽 덮개가 겹치는 곳이 진해 보여서 미리 섞은 색을 쓴다.
+                            else -> lerp(NapColors.Surface, NapColors.Accent, 0.45f)
                         }
                         Bar(color, Modifier.width(52.dp).height(barHeight))
                     }
@@ -221,7 +223,7 @@ private fun RecentList(records: List<SessionRecord>, zone: ZoneId) {
                     Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
-                        .height(56.dp)
+                        .height(40.dp)
                         .background(Brush.verticalGradient(listOf(Color.Transparent, NapColors.Surface))),
                 )
             }

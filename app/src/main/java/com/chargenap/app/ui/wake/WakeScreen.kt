@@ -84,7 +84,7 @@ fun BriefingScreen(summary: SessionSummary, onConfirm: () -> Unit, modifier: Mod
     val interrupted = summary.wakeReason == WakeReason.CHARGING_INTERRUPTED
     val failures = failureKinds(summary.failures)
     // 위쪽 가운데는 DEMO 배지 자리라 제목을 조금 내려서 시작한다.
-    Column(modifier.fillMaxSize().padding(start = 56.dp, end = 56.dp, top = 60.dp, bottom = 36.dp)) {
+    Column(modifier.fillMaxSize().padding(start = 56.dp, end = 56.dp, top = 58.dp, bottom = 36.dp)) {
         Column(Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState())) {
             Text(
                 text = stringResource(if (interrupted) R.string.briefing_title_interrupted else R.string.briefing_title),
@@ -103,7 +103,7 @@ fun BriefingScreen(summary: SessionSummary, onConfirm: () -> Unit, modifier: Mod
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(20.dp))
             Row(
                 modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
                 horizontalArrangement = Arrangement.spacedBy(20.dp),
@@ -146,12 +146,7 @@ private fun BatteryTile(summary: SessionSummary, modifier: Modifier = Modifier) 
             valueColor = NapColors.Charge,
             modifier = modifier,
         )
-        else -> StatTile(
-            label = label,
-            value = stringResource(R.string.value_unknown),
-            caption = stringResource(R.string.briefing_battery_unknown),
-            modifier = modifier,
-        )
+        else -> UnknownTile(label, stringResource(R.string.briefing_battery_unknown), modifier)
     }
 }
 
@@ -165,12 +160,19 @@ private fun RangeTile(rangeKm: Int?, modifier: Modifier = Modifier) {
             modifier = modifier,
         )
     } else {
-        StatTile(
-            label = stringResource(R.string.briefing_range),
-            value = stringResource(R.string.value_unknown),
-            caption = stringResource(R.string.briefing_range_unknown),
-            modifier = modifier,
-        )
+        UnknownTile(stringResource(R.string.briefing_range), stringResource(R.string.briefing_range_unknown), modifier)
+    }
+}
+
+/** 값을 읽지 못한 항목. 큰 숫자 자리에 사유를 두 줄로 적는다(다른 타일과 높이가 같다). */
+@Composable
+private fun UnknownTile(label: String, message: String, modifier: Modifier = Modifier) {
+    NapCard(modifier = modifier, contentPadding = PaddingValues(horizontal = 32.dp, vertical = 26.dp)) {
+        Column {
+            Text(text = label, style = NapType.BodySmall, color = NapColors.TextSecondary, maxLines = 1)
+            Spacer(Modifier.height(10.dp))
+            Text(text = message, style = NapType.Body, color = NapColors.TextTertiary, maxLines = 2)
+        }
     }
 }
 

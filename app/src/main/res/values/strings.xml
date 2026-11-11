@@ -28,7 +28,7 @@
     <string name="home_battery_unknown">잔량을 읽을 수 없어요</string>
     <string name="home_remaining_to_target">%1$d%%까지 약 %2$d분</string>
     <string name="home_remaining_measuring">남은 시간을 재는 중이에요</string>
-    <string name="home_fallback_demo">차량 서비스에 연결하지 못해 데모 모드로 실행 중이에요</string>
+    <string name="home_fallback_demo">차량 서비스에 연결하지 못해\n데모 모드로 실행 중이에요</string>
     <string name="home_voice_hint">“시작해 줘”라고 말해도 돼요</string>
     <string name="home_offer_label">추천</string>
     <string name="home_offer_nap_title">%1$d분 파워냅 어때요?</string>
@@ -36,7 +36,7 @@
     <string name="home_offer_breathing_title">호흡 %1$d분 어때요?</string>
     <string name="home_offer_breathing_body">충전이 곧 끝나요. 잠깐 숨만 고르세요</string>
     <string name="home_offer_choose_title">얼마나 쉴까요?</string>
-    <string name="home_offer_choose_body">충전 속도를 재는 중이에요. 고른 시간에 깨워 드려요</string>
+    <string name="home_offer_choose_body">충전 속도를 재는 중이에요.\n고른 시간에 깨워 드려요</string>
     <string name="home_offer_start">시작</string>
     <string name="home_offer_decline">괜찮아요</string>
     <string name="home_pick_title">얼마나 쉴까요?</string>
@@ -67,18 +67,18 @@
     <string name="safety_fail_brake">주차 브레이크가 풀려 있어요</string>
     <string name="safety_fail_charging">충전기가 연결되지 않았어요</string>
     <string name="safety_fail_doors">문이 열려 있어요</string>
-    <string name="safety_rear_question">뒷좌석에 사람이나 짐이 있나요?</string>
-    <string name="safety_rear_body">없으면 등받이를 눕혀요. 있으면 그대로 둘게요</string>
+    <string name="safety_rear_question">뒷좌석에 사람이나 짐이\n있나요?</string>
+    <string name="safety_rear_body">없으면 등받이를 눕혀요.\n있으면 그대로 둘게요</string>
     <string name="safety_rear_clear">없어요</string>
     <string name="safety_rear_occupied">있어요</string>
     <string name="safety_door_question">문이 모두 닫혀 있나요?</string>
     <string name="safety_door_body">이 차량은 문 상태를 읽을 수 없어요</string>
     <string name="safety_door_confirm">닫혀 있어요</string>
     <string name="safety_wait_door_title">문을 닫아 주세요</string>
-    <string name="safety_wait_brake_title">주차 브레이크를 걸어 주세요</string>
+    <string name="safety_wait_brake_title">주차 브레이크를\n걸어 주세요</string>
     <string name="safety_wait_body">확인되면 바로 이어서 진행해요</string>
     <string name="safety_checking_title">확인하고 있어요</string>
-    <string name="preparing_title">편안한 자리를 준비하고 있어요</string>
+    <string name="preparing_title">편안한 자리를\n준비하고 있어요</string>
     <string name="preparing_body_seat">등받이가 천천히 움직여요</string>
     <string name="preparing_body_climate">공조를 맞추고 있어요</string>
 
@@ -105,9 +105,9 @@
     <string name="briefing_interrupted_body">충전기를 확인해 주세요</string>
     <string name="briefing_battery">잔량</string>
     <string name="briefing_battery_change">%1$s → %2$s</string>
-    <string name="briefing_battery_unknown">잔량을 읽지 못했어요</string>
+    <string name="briefing_battery_unknown">잔량을 읽지\n못했어요</string>
     <string name="briefing_range">주행 가능 거리</string>
-    <string name="briefing_range_unknown">거리를 읽지 못했어요</string>
+    <string name="briefing_range_unknown">거리를 읽지\n못했어요</string>
     <string name="briefing_slept">쉰 시간</string>
     <string name="briefing_slept_breathing">호흡한 시간</string>
     <string name="briefing_failures_title">확인이 필요해요</string>

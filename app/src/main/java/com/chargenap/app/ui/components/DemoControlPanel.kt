@@ -86,7 +86,8 @@ fun DemoControlPanel(
             .clip(shape)
             .background(NapColors.Surface)
             .border(1.5.dp, NapColors.Outline, shape)
-            .padding(horizontal = 14.dp, vertical = 10.dp),
+            // 화면 머리줄(제목, 이동 버튼)이 아래로 비어져 나오지 않도록 머리줄보다 조금 높게 잡는다.
+            .padding(horizontal = 14.dp, vertical = 20.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {

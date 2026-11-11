@@ -1,8 +1,11 @@
 package com.chargenap.app.ui
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
@@ -42,6 +45,9 @@ import com.chargenap.app.vehicle.CabinApplyResult
 import com.chargenap.app.vehicle.ChargingState
 import com.chargenap.app.vehicle.VehicleCapabilities
 import java.time.ZoneId
+
+/** 하단 안내가 떠 있는 동안 화면 내용이 비켜 주는 높이. */
+private val NOTICE_LANE_HEIGHT = 64.dp
 
 /** 세션이 없을 때(`Idle`/`Offer`) 볼 수 있는 화면. 세션이 진행 중이면 엔진 상태가 화면을 정한다. */
 enum class NapRoute { HOME, SETTINGS, REPORT }
@@ -115,69 +121,77 @@ fun ChargeNapContent(
             modifier = modifier,
             background = if (sleeping) NapColors.SleepBackground else NapColors.Background,
         ) {
-            when (session) {
-                NapSessionState.Idle, is NapSessionState.Offer -> when (route) {
-                    NapRoute.HOME -> HomeScreen(
-                        state = state,
-                        onStart = actions::requestStart,
-                        onDecline = actions::declineOffer,
-                        onOpenReport = { onNavigate(NapRoute.REPORT) },
-                        onOpenSettings = { onNavigate(NapRoute.SETTINGS) },
+            // 하단 안내가 떠 있는 동안에는 화면 내용을 그만큼 줄여 안내가 버튼이나 카드를 가리지 않게 한다.
+            // 수면 화면은 가운데 숫자가 움직이지 않도록 그대로 두고 안내를 버튼 위에 띄운다.
+            val noticeInset by animateDpAsState(
+                targetValue = if (state.notice != null && !sleeping) NOTICE_LANE_HEIGHT else 0.dp,
+                label = "noticeInset",
+            )
+            Box(Modifier.fillMaxSize().padding(bottom = noticeInset)) {
+                when (session) {
+                    NapSessionState.Idle, is NapSessionState.Offer -> when (route) {
+                        NapRoute.HOME -> HomeScreen(
+                            state = state,
+                            onStart = actions::requestStart,
+                            onDecline = actions::declineOffer,
+                            onOpenReport = { onNavigate(NapRoute.REPORT) },
+                            onOpenSettings = { onNavigate(NapRoute.SETTINGS) },
+                        )
+                        NapRoute.SETTINGS -> SettingsScreen(
+                            settings = state.settings,
+                            capabilities = state.capabilities,
+                            actions = actions,
+                            onBack = { onNavigate(NapRoute.HOME) },
+                        )
+                        NapRoute.REPORT -> ReportScreen(
+                            report = state.weeklyReport,
+                            recentRecords = state.recentRecords,
+                            todayEpochDay = state.todayEpochDay,
+                            onBack = { onNavigate(NapRoute.HOME) },
+                            zone = zone,
+                        )
+                    }
+                    is NapSessionState.SafetyCheck -> SafetyScreen(
+                        model = SafetyUiModel(
+                            minutes = session.minutes,
+                            mode = session.mode,
+                            report = session.report,
+                            rearSeatQuestionPending = session.rearSeatQuestionPending,
+                            doorConfirmPending = session.doorConfirmPending,
+                        ),
+                        onAnswerRearSeat = actions::answerRearSeat,
+                        onConfirmDoorsClosed = actions::confirmDoorsClosed,
+                        onCancel = actions::cancel,
                     )
-                    NapRoute.SETTINGS -> SettingsScreen(
-                        settings = state.settings,
-                        capabilities = state.capabilities,
-                        actions = actions,
-                        onBack = { onNavigate(NapRoute.HOME) },
+                    is NapSessionState.Preparing -> SafetyScreen(
+                        model = SafetyUiModel(
+                            minutes = session.minutes,
+                            mode = session.mode,
+                            report = state.startBlockers,
+                            preparing = true,
+                            seatMoving = session.seatConsent,
+                        ),
+                        onAnswerRearSeat = actions::answerRearSeat,
+                        onConfirmDoorsClosed = actions::confirmDoorsClosed,
+                        onCancel = actions::cancel,
                     )
-                    NapRoute.REPORT -> ReportScreen(
-                        report = state.weeklyReport,
-                        recentRecords = state.recentRecords,
-                        todayEpochDay = state.todayEpochDay,
-                        onBack = { onNavigate(NapRoute.HOME) },
-                        zone = zone,
+                    is NapSessionState.Napping -> SleepHost(
+                        remainingSeconds = state.remainingSeconds ?: 0,
+                        timerOnly = session.timerOnly,
+                        mode = session.mode,
+                        onWake = actions::requestWake,
+                        onExtend = actions::requestExtend,
+                        controlsInitiallyVisible = sleepControlsInitiallyVisible,
+                    )
+                    is NapSessionState.Waking -> WakingScreen(session.reason)
+                    is NapSessionState.Briefing -> BriefingScreen(session.summary, onConfirm = actions::acknowledgeBriefing)
+                    is NapSessionState.Aborted -> AbortedHost(
+                        state = session,
+                        anyDoorOpen = state.anyDoorOpen,
+                        onRestoreNow = actions::confirmDoorsClosed,
+                        onConfirm = actions::acknowledgeAbort,
                     )
                 }
-                is NapSessionState.SafetyCheck -> SafetyScreen(
-                    model = SafetyUiModel(
-                        minutes = session.minutes,
-                        mode = session.mode,
-                        report = session.report,
-                        rearSeatQuestionPending = session.rearSeatQuestionPending,
-                        doorConfirmPending = session.doorConfirmPending,
-                    ),
-                    onAnswerRearSeat = actions::answerRearSeat,
-                    onConfirmDoorsClosed = actions::confirmDoorsClosed,
-                    onCancel = actions::cancel,
-                )
-                is NapSessionState.Preparing -> SafetyScreen(
-                    model = SafetyUiModel(
-                        minutes = session.minutes,
-                        mode = session.mode,
-                        report = state.startBlockers,
-                        preparing = true,
-                        seatMoving = session.seatConsent,
-                    ),
-                    onAnswerRearSeat = actions::answerRearSeat,
-                    onConfirmDoorsClosed = actions::confirmDoorsClosed,
-                    onCancel = actions::cancel,
-                )
-                is NapSessionState.Napping -> SleepHost(
-                    remainingSeconds = state.remainingSeconds ?: 0,
-                    timerOnly = session.timerOnly,
-                    mode = session.mode,
-                    onWake = actions::requestWake,
-                    onExtend = actions::requestExtend,
-                    controlsInitiallyVisible = sleepControlsInitiallyVisible,
-                )
-                is NapSessionState.Waking -> WakingScreen(session.reason)
-                is NapSessionState.Briefing -> BriefingScreen(session.summary, onConfirm = actions::acknowledgeBriefing)
-                is NapSessionState.Aborted -> AbortedHost(
-                    state = session,
-                    anyDoorOpen = state.anyDoorOpen,
-                    onRestoreNow = actions::confirmDoorsClosed,
-                    onConfirm = actions::acknowledgeAbort,
-                )
             }
 
             // 머리줄 가운데: DEMO 배지와 DEMO 조작 패널. 화면들은 이 자리를 비워 둔다.
@@ -195,7 +209,8 @@ fun ChargeNapContent(
                     modifier = Modifier.align(Alignment.TopCenter).padding(start = 24.dp, end = 24.dp, top = 8.dp),
                     dim = sleeping,
                     leading = {
-                        if (showBadge) DemoBadge(Modifier.padding(horizontal = 6.dp), dim = sleeping)
+                        // 수면 화면에서는 패널 전체가 흐려지므로 배지를 따로 어둡게 하지 않는다(겹쳐 어두워지면 읽을 수 없다).
+                        if (showBadge) DemoBadge(Modifier.padding(horizontal = 6.dp))
                     },
                 )
             } else if (showBadge || demoPanelVisible) {
@@ -229,7 +244,7 @@ fun ChargeNapContent(
                     // 수면 화면에서는 [5분 더]/[지금 일어나기] 버튼 위에 띄운다.
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .padding(bottom = if (sleeping) 156.dp else 28.dp),
+                        .padding(bottom = if (sleeping) 156.dp else 20.dp),
                     dim = sleeping,
                 )
             }

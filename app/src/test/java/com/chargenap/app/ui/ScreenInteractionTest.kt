@@ -167,7 +167,7 @@ class ScreenInteractionTest {
             ),
         )
 
-        compose.onNodeWithText("뒷좌석에 사람이나 짐이 있나요?").assertIsDisplayed()
+        compose.onNodeWithText("뒷좌석에 사람이나 짐이\n있나요?").assertIsDisplayed()
         compose.onNodeWithText("없어요").performClick()
         compose.onNodeWithText("있어요").performClick()
         compose.onNodeWithText("취소").performClick()
@@ -199,7 +199,7 @@ class ScreenInteractionTest {
     fun preparing_canCancel() {
         show(charging(NapSessionState.Preparing(20, SessionMode.NAP, seatConsent = true)))
 
-        compose.onNodeWithText("편안한 자리를 준비하고 있어요").assertIsDisplayed()
+        compose.onNodeWithText("편안한 자리를\n준비하고 있어요").assertIsDisplayed()
         compose.onNodeWithText("취소").performClick()
 
         assertEquals(listOf("cancel"), calls)
