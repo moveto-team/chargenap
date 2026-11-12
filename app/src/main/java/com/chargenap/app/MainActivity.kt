@@ -1,6 +1,8 @@
 package com.chargenap.app
 
+import android.Manifest
 import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
@@ -37,15 +39,15 @@ class MainActivity : ComponentActivity() {
     private val container: AppContainer
         get() = (application as ChargeNapApplication).container
 
-    private val energyPermission =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            if (granted) container.onVehiclePermissionsChanged()
+    private val runtimePermissions =
+        registerForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { results ->
+            if (results[CAR_ENERGY_PERMISSION] == true) container.onVehiclePermissionsChanged()
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        requestCarEnergyPermissionIfNeeded()
+        requestRuntimePermissionsIfNeeded()
 
         setContent {
             val graph by container.graph.collectAsStateWithLifecycle()
@@ -111,14 +113,16 @@ class MainActivity : ComponentActivity() {
     }
 
     /**
-     * AAOS 충전 상태·남은 충전 시간 속성은 android.car.permission.CAR_ENERGY(dangerous)가 필요하다.
-     * 거부해도 앱은 Pleos SDK 값만으로 동작한다.
+     * 실행 중 요청이 필요한 권한. 거부해도 앱은 동작한다.
+     * - android.car.permission.CAR_ENERGY(dangerous): AAOS 충전 상태·남은 충전 시간. 없으면 Pleos SDK 값만 쓴다.
+     * - POST_NOTIFICATIONS(Android 13+): 세션 중 알림 표시. 없어도 감시는 계속된다.
      */
-    private fun requestCarEnergyPermissionIfNeeded() {
-        if (!packageManager.hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) return
-        val granted = ContextCompat.checkSelfPermission(this, CAR_ENERGY_PERMISSION) ==
-            PackageManager.PERMISSION_GRANTED
-        if (!granted) energyPermission.launch(CAR_ENERGY_PERMISSION)
+    private fun requestRuntimePermissionsIfNeeded() {
+        val wanted = buildList {
+            if (packageManager.hasSystemFeature(PackageManager.FEATURE_AUTOMOTIVE)) add(CAR_ENERGY_PERMISSION)
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) add(Manifest.permission.POST_NOTIFICATIONS)
+        }.filter { ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED }
+        if (wanted.isNotEmpty()) runtimePermissions.launch(wanted.toTypedArray())
     }
 
     private companion object {

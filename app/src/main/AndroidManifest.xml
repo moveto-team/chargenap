@@ -21,6 +21,11 @@
     <uses-permission android:name="android.car.permission.CAR_ENERGY_PORTS" />
     <uses-permission android:name="android.car.permission.CAR_ENERGY" />
 
+    <!-- 세션 중 감시·기상 타이머를 지키는 포그라운드 서비스와 그 알림 -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
     <uses-feature
         android:name="android.hardware.type.automotive"
         android:required="false" />
@@ -42,5 +47,14 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <service
+            android:name=".SessionForegroundService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="In-car power nap session: keeps gear/door safety monitoring and the wake-up timer running, and restores the driver seat and climate when the session ends." />
+        </service>
     </application>
 </manifest>

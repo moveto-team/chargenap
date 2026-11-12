@@ -30,3 +30,6 @@ Thumbs.db
 
 # 에이전트 작업용 worktree
 .claude/worktrees/
+
+# 접수양식 등 개인정보가 들어가는 제출 자료(로컬 전용)
+submission/

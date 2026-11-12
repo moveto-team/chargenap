@@ -8,6 +8,7 @@ import com.chargenap.app.vehicle.NapPreset
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -108,5 +109,19 @@ class RepositoryTest {
         repository.add(record(1))
 
         assertEquals(listOf(record(1)), repository.records.first())
+    }
+
+    @Test
+    fun settings_writeFailure_returnsFalseWithoutCrash() = runTest {
+        val repository = SettingsRepository(FailingWritePreferencesStore())
+        assertFalse(repository.update { it.copy(fanLevel = 4) })
+        assertEquals(AppSettings(), repository.settings.first())
+    }
+
+    @Test
+    fun history_writeFailure_returnsFalseWithoutCrash() = runTest {
+        val repository = SessionHistoryRepository(FailingWritePreferencesStore())
+        assertFalse(repository.add(record(1)))
+        assertTrue(repository.records.first().isEmpty())
     }
 }

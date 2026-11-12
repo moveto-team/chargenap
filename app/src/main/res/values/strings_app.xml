@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- MainActivity(메인 세션 소유). 화면 문구는 strings.xml, 음성 문구는 strings_voice.xml -->
+    <!-- MainActivity·서비스(메인 세션 소유). 화면 문구는 strings.xml, 음성 문구는 strings_voice.xml -->
     <string name="app_connecting">차량에 연결하고 있어요</string>
+    <string name="session_channel_name">파워냅 세션</string>
+    <string name="session_channel_description">휴식 중 기어·도어를 지켜보고 제때 깨워 드려요</string>
+    <string name="session_notification_title">차지냅 휴식 중</string>
+    <string name="session_notification_text">기어와 도어를 지켜보고 있어요. 눌러서 열기</string>
 </resources>

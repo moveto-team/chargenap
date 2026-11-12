@@ -7,7 +7,7 @@ import com.chargenap.app.session.NapSessionEngine
 import com.chargenap.app.session.ScaledClock
 import com.chargenap.app.session.SessionSummary
 import com.chargenap.app.session.SessionTimings
-import com.chargenap.app.session.SystemClock
+import com.chargenap.app.session.NapSessionState
 import com.chargenap.app.vehicle.DemoVehicleControls
 import com.chargenap.app.vehicle.FakeScenario
 import com.chargenap.app.vehicle.FakeVehicleGateway
@@ -46,6 +46,34 @@ class SessionGraph internal constructor(
 )
 
 /**
+ * 기기 시각이 GNSS·NTP 동기화로 바뀌어도 흔들리지 않는 세션 시계.
+ *
+ * 단조 시계([System.nanoTime])로 흐르고, 만든 순간의 벽시계 시각에서 출발하므로
+ * 세션 기록의 날짜도 맞는다. 수면 중 시각이 30분 뒤로 맞춰져도 기상이 늦어지지 않는다.
+ */
+class MonotonicWallClock(
+    wallMillis: () -> Long = System::currentTimeMillis,
+    private val monotonicNanos: () -> Long = System::nanoTime,
+) : Clock {
+    private val originWall = wallMillis()
+    private val originNanos = monotonicNanos()
+
+    override fun nowMillis(): Long = originWall + (monotonicNanos() - originNanos) / 1_000_000
+}
+
+/** 이 상태에서는 앱이 뒤로 가도 감시·타이머가 계속 돌아야 한다(포그라운드 서비스 유지). */
+fun NapSessionState.needsForegroundService(): Boolean = when (this) {
+    NapSessionState.Idle, is NapSessionState.Offer -> false
+    is NapSessionState.SafetyCheck,
+    is NapSessionState.Preparing,
+    is NapSessionState.Napping,
+    is NapSessionState.Waking,
+    is NapSessionState.Briefing,
+    is NapSessionState.Aborted,
+    -> true
+}
+
+/**
  * [SessionGraph]를 만들고 교체한다.
  *
  * - 데모 모드가 아니면 실제 게이트웨이를 먼저 시도하고, 연결에 실패하면 가상 차량으로 대체한다.
@@ -62,8 +90,9 @@ class SessionGraphManager(
     private val realGatewayFactory: (CoroutineScope) -> VehicleGateway,
     private val onSessionCompleted: suspend (SessionSummary) -> Unit,
     private val attachExtras: (SessionGraph) -> (() -> Unit) = { {} },
-    private val baseClock: Clock = SystemClock,
-    private val demoScenario: FakeScenario = FakeScenario(restartWhenNearlyFull = true),
+    private val baseClock: Clock = MonotonicWallClock(),
+    // 데모: 잔량 30%에서 시작해 80%까지 약 50분(세션 시계) 충전한다. 제안 카드가 실제 시간 약 80초 유지된다.
+    private val demoScenario: FakeScenario = FakeScenario(startPercent = 30, restartWhenNearlyFull = true),
     private val demoTimeScale: Double = DEMO_TIME_SCALE,
 ) {
     private val _graph = MutableStateFlow<SessionGraph?>(null)
@@ -149,8 +178,11 @@ class SessionGraphManager(
     }
 
     companion object {
-        /** 데모 모드 배속. 20분 세션이 20초에 재생된다. */
-        const val DEMO_TIME_SCALE = 60.0
+        /**
+         * 데모 모드 배속. 20분 세션이 40초에 재생된다.
+         * 60배는 느린 에뮬레이터에서 화면을 조작할 틈이 없어 30배로 정했다.
+         */
+        const val DEMO_TIME_SCALE = 30.0
         private const val DEMO_TICK_MILLIS = 250L
     }
 }

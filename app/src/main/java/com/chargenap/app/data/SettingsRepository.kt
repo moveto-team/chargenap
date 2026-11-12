@@ -1,6 +1,7 @@
 package com.chargenap.app.data
 
 import android.content.Context
+import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.Preferences
@@ -33,8 +34,16 @@ class SettingsRepository internal constructor(private val store: DataStore<Prefe
         .map { prefs -> read(prefs) }
         .distinctUntilChanged()
 
-    suspend fun update(transform: (AppSettings) -> AppSettings) {
+    /**
+     * 설정을 바꾼다. 저장에 실패하면(디스크 부족 등) 예외를 던지지 않고 false를 돌려준다.
+     * 앱이 죽는 것보다 설정 한 번이 저장되지 않는 편이 낫다.
+     */
+    suspend fun update(transform: (AppSettings) -> AppSettings): Boolean = try {
         store.edit { prefs -> write(prefs, transform(read(prefs)).normalized()) }
+        true
+    } catch (e: IOException) {
+        Log.w(TAG, "설정을 저장하지 못했습니다", e)
+        false
     }
 
     private fun read(prefs: Preferences): AppSettings {
@@ -61,6 +70,7 @@ class SettingsRepository internal constructor(private val store: DataStore<Prefe
     }
 
     private companion object {
+        const val TAG = "ChargeNapSettings"
         val RECLINE = intPreferencesKey("recline_level")
         val TEMPERATURE = floatPreferencesKey("temperature_c")
         val FAN = intPreferencesKey("fan_level")

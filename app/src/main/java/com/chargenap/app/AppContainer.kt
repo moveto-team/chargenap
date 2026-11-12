@@ -15,6 +15,7 @@ import com.chargenap.app.voice.VoiceController
 import com.chargenap.app.voice.VoicePhrases
 import com.chargenap.app.voice.VoiceSessionBinder
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
@@ -22,6 +23,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -67,6 +70,7 @@ class AppContainer(context: Context) {
     private var started = false
 
     /** 앱 시작 때 한 번 부른다. 음성을 초기화하고 데모 모드 설정에 맞춰 그래프를 만든다. */
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun start() {
         if (started) return
         started = true
@@ -75,6 +79,27 @@ class AppContainer(context: Context) {
             settingsRepository.settings.map { it.demoMode }.distinctUntilChanged().collect { demoMode ->
                 graphs.rebuild(demoMode)
             }
+        }
+        // 세션이 진행되는 동안에는 포그라운드 서비스로 감시·타이머를 지킨다.
+        appScope.launch {
+            graph.flatMapLatest { current ->
+                current?.engine?.state?.map { it.needsForegroundService() } ?: flowOf(false)
+            }.distinctUntilChanged().collect { needed ->
+                if (needed) SessionForegroundService.start(appContext) else SessionForegroundService.stop(appContext)
+            }
+        }
+    }
+
+    /**
+     * 진행 중인 세션을 끝내고 시트·공조를 되돌린 뒤 다음 세션을 기다린다.
+     * 사용자가 최근 앱 목록에서 차지냅을 지웠을 때 부른다.
+     */
+    fun endActiveSession() {
+        val current = graph.value ?: return
+        if (!current.engine.state.value.needsForegroundService()) return
+        appScope.launch {
+            current.engine.shutdown()
+            if (graph.value === current) current.engine.start()
         }
     }
 

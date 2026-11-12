@@ -22,3 +22,11 @@ class InMemoryPreferencesStore(initial: Preferences = emptyPreferences()) : Data
             next
         }
 }
+
+/** 쓰기가 항상 실패하는 저장소. 디스크가 가득 찬 상황을 흉내 낸다. */
+class FailingWritePreferencesStore : DataStore<Preferences> {
+    override val data: Flow<Preferences> = MutableStateFlow(emptyPreferences())
+
+    override suspend fun updateData(transform: suspend (t: Preferences) -> Preferences): Preferences =
+        throw java.io.IOException("No space left on device")
+}

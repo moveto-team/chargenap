@@ -1,6 +1,7 @@
 package com.chargenap.app.data
 
 import android.content.Context
+import android.util.Log
 import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
@@ -29,15 +30,21 @@ class SessionHistoryRepository internal constructor(private val store: DataStore
         .map { prefs -> SessionRecordCodec.decode(prefs[RECORDS]) }
         .distinctUntilChanged()
 
-    suspend fun add(record: SessionRecord) {
+    /** 기록을 더한다. 저장에 실패하면(디스크 부족 등) 예외를 던지지 않고 false를 돌려준다. */
+    suspend fun add(record: SessionRecord): Boolean = try {
         store.edit { prefs ->
             val next = SessionRecordCodec.decode(prefs[RECORDS]) + record
             prefs[RECORDS] = SessionRecordCodec.encode(next.takeLast(MAX_RECORDS))
         }
+        true
+    } catch (e: IOException) {
+        Log.w(TAG, "세션 기록을 저장하지 못했습니다", e)
+        false
     }
 
     companion object {
         const val MAX_RECORDS = 200
+        private const val TAG = "ChargeNapHistory"
         private val RECORDS = stringPreferencesKey("records")
     }
 }
