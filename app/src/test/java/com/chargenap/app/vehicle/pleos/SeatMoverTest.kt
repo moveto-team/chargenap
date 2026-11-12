@@ -140,7 +140,8 @@ class SeatMoverTest {
         assertEquals(listOf(SeatMoveErrors.NO_RESPONSE), result.errors)
         assertFalse(result.moved)
         assertEquals(listOf(SeatCommand.RECLINE, SeatCommand.STOP), seat.commands)
-        assertEquals(2_000, currentTime)
+        // 2초에 멈추고, 정지를 확인하는 데 한 번(500 ms) 더 본다
+        assertEquals(2_000 + SeatMoveLimits().stopCheckIntervalMs, currentTime)
     }
 
     @Test
@@ -169,7 +170,9 @@ class SeatMoverTest {
         assertEquals(listOf(SeatMoveErrors.TIMED_OUT), result.errors)
         assertTrue(result.moved)
         assertEquals(SeatCommand.STOP, seat.commands.last())
-        assertTrue("elapsed=$currentTime", currentTime in 20_000..20_100)
+        // 20초에 멈추고, 정지를 확인하는 데 한 번(500 ms) 더 본다
+        val check = SeatMoveLimits().stopCheckIntervalMs
+        assertTrue("elapsed=$currentTime", currentTime in (20_000 + check)..(20_100 + check))
     }
 
     @Test
@@ -234,13 +237,81 @@ class SeatMoverTest {
     }
 
     @Test
-    fun stopFailsTwice_isReported() = runTest {
+    fun stopFailsTwice_retriesUntilPositionSettles() = runTest {
         val seat = backrest(start = 90).apply { stopFailures = 2 }
         val plan = planRecline(min = 0, max = 100, current = 90, reclineLevel = 60)!!
 
         val result = move(seat, plan)
 
-        assertEquals(listOf("${SeatMoveErrors.STOP_FAILED}: stop rejected"), result.errors)
+        assertEquals(emptyList<String>(), result.errors)
+        assertEquals(
+            listOf(SeatCommand.RECLINE, SeatCommand.STOP, SeatCommand.STOP, SeatCommand.STOP),
+            seat.commands,
+        )
+        assertEquals(0, seat.velocity)
+        val settled = seat.position.value
+        advanceTimeBy(2_000)
+        assertEquals("정지를 확인한 뒤에는 움직이지 않는다", settled, seat.position.value)
+    }
+
+    @Test
+    fun stopNeverConfirmed_reportsError() = runTest {
+        // 정지 명령을 늘 거절하고 계속 움직이는 시트(범위가 넓어 10초 안에 끝에 닿지 않는다)
+        val seat = FakeBackrest(start = 1_000, max = 1_000).apply { stopFailures = Int.MAX_VALUE }
+        backgroundScope.launch { seat.run() }
+        val plan = planRecline(min = 0, max = 1_000, current = 1_000, reclineLevel = 2)!!
+
+        val result = move(seat, plan)
+
+        assertTrue(result.errors.toString(), SeatMoveErrors.STOP_UNCONFIRMED in result.errors)
+        assertTrue(result.errors.toString(), "${SeatMoveErrors.STOP_FAILED}: stop rejected" in result.errors)
+        val stops = seat.commands.count { it == SeatCommand.STOP }
+        assertTrue("위치가 바뀌는 동안 정지 명령을 다시 보낸다: $stops", stops >= 15)
+        assertTrue("10초 안팎에서 그만둔다: $currentTime", currentTime in 10_000..11_500)
+    }
+
+    @Test
+    fun stopAccepted_butSeatKeepsMoving_resendsStop() = runTest {
+        // 첫 정지 명령은 받아들였다고 하고도 움직임이 이어진다
+        val seat = backrest(start = 90)
+        val plan = planRecline(min = 0, max = 100, current = 90, reclineLevel = 60)!!
+        var ignoredStops = 1
+        val port = object : BackrestPort by seat {
+            override suspend fun command(command: SeatCommand): String? {
+                if (command == SeatCommand.STOP && ignoredStops > 0) {
+                    ignoredStops--
+                    seat.commands += command
+                    return null
+                }
+                return seat.command(command)
+            }
+        }
+
+        val result = runSeatMove(port, plan, SeatMoveLimits(), nowMs = { currentTime })
+
+        assertEquals(emptyList<String>(), result.errors)
         assertEquals(listOf(SeatCommand.RECLINE, SeatCommand.STOP, SeatCommand.STOP), seat.commands)
+        assertEquals(0, seat.velocity)
+    }
+
+    @Test
+    fun restoreLimits_waitLongerForSlowSeat() = runTest {
+        // 2.5초마다 5씩 움직이는 느린 시트. 40 → 90은 25초가 걸린다
+        val plan = planRaise(min = 0, max = 100, current = 40, snapshotPosition = 90)!!
+
+        val forRecline = FakeBackrest(start = 40, tickMs = 2_500)
+        backgroundScope.launch { forRecline.run() }
+        val reclinePolicy = runSeatMove(forRecline, plan, SeatMoveLimits.RECLINE, nowMs = { currentTime })
+        assertEquals("눕히기 정책은 2초 무응답에 멈춘다", listOf(SeatMoveErrors.NO_RESPONSE), reclinePolicy.errors)
+
+        val forRestore = FakeBackrest(start = 40, tickMs = 2_500)
+        backgroundScope.launch { forRestore.run() }
+        val restorePolicy = runSeatMove(forRestore, plan, SeatMoveLimits.RESTORE, nowMs = { currentTime })
+        assertEquals("복구 정책은 4초 무응답·45초 제한이라 끝까지 세운다", emptyList<String>(), restorePolicy.errors)
+        assertEquals(90, forRestore.position.value)
+
+        assertEquals(SeatMoveLimits(), SeatMoveLimits.RECLINE)
+        assertEquals(4_000L, SeatMoveLimits.RESTORE.stallTimeoutMs)
+        assertEquals(45_000L, SeatMoveLimits.RESTORE.totalTimeoutMs)
     }
 }

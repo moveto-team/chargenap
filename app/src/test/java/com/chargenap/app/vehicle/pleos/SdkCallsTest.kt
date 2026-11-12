@@ -75,6 +75,14 @@ class SdkCallsTest {
     }
 
     @Test
+    fun defaultTimeout_isFiveSeconds() = runTest {
+        // 부하가 높은 에뮬레이터에서 3초는 정상 응답도 자주 넘겼다
+        val outcome = SdkCalls().request<Int?> { _, _ -> }
+        assertEquals(SdkOutcome.Timeout, outcome)
+        assertEquals(5_000, currentTime)
+    }
+
+    @Test
     fun customTimeout_isUsed() = runTest {
         val outcome = SdkCalls().request<Int?>(timeoutMs = 8_000) { _, _ -> }
         assertEquals(SdkOutcome.Timeout, outcome)

@@ -15,6 +15,7 @@ import com.chargenap.app.vehicle.pleos.ChargingInputs
 import com.chargenap.app.vehicle.pleos.ClimateController
 import com.chargenap.app.vehicle.pleos.ClimateOutcome
 import com.chargenap.app.vehicle.pleos.ClimateSnapshot
+import com.chargenap.app.vehicle.pleos.LatestValueGuard
 import com.chargenap.app.vehicle.pleos.PleosCapabilities
 import com.chargenap.app.vehicle.pleos.PleosClimatePort
 import com.chargenap.app.vehicle.pleos.PleosSeatControl
@@ -152,13 +153,7 @@ class PleosVehicleGateway(
      */
     fun refreshAaosAvailability() {
         val current = currentSession() ?: return
-        current.scope.launch {
-            val signals = withContext(Dispatchers.IO) {
-                current.aaos.refresh()
-                current.aaos.read()
-            }
-            current.update { it.copy(aaos = signals) }
-        }
+        current.scope.launch { current.refreshAaos(reconnect = true) }
     }
 
     private fun currentSession(): Session? = synchronized(stateLock) { session }
@@ -375,10 +370,7 @@ class PleosVehicleGateway(
                 ) { signals, value -> signals.withDoor(index, isDoorOpen(value, doorTarget.closedPosition)) }
             }
         }
-        launch {
-            val aaos = withContext(Dispatchers.IO) { target.aaos.read() }
-            target.update { it.copy(aaos = aaos) }
-        }
+        launch { target.refreshAaos() }
         Unit
     }
 
@@ -594,8 +586,12 @@ class PleosVehicleGateway(
         var closed = false
         private val unregisters = mutableListOf<() -> Unit>()
 
-        /** 값마다 리스너가 울린 횟수. 조회하는 사이 리스너가 더 새 값을 줬는지 가릴 때 쓴다. */
-        private val listenerEvents = ConcurrentHashMap<String, AtomicInteger>()
+        /**
+         * 값마다 리스너 값과 조회 결과의 순서를 가린다. 조회를 시작한 뒤 리스너가 더 새 값을 줬으면 조회 결과를 버린다.
+         * 판정과 [signals] 쓰기를 [stateLock] 안에서 한 번에 해야 오래된 조회 값(P·닫힘)이 방금 온 리스너 값(D·열림)을
+         * 덮지 않는다.
+         */
+        private val freshness = LatestValueGuard(stateLock)
 
         /** 값마다 조회가 연달아 실패한 횟수. */
         private val readFailures = ConcurrentHashMap<String, AtomicInteger>()
@@ -627,15 +623,17 @@ class PleosVehicleGateway(
             }
         }
 
+        /** 리스너 값. 언제나 반영한다(가장 새 값). */
         fun onEvent(key: String, transform: (Signals) -> Signals) {
-            eventsOf(key).incrementAndGet()
-            failuresOf(key).set(0)
-            update(transform)
+            freshness.push(key) {
+                failuresOf(key).set(0)
+                update(transform)
+            }
         }
 
         /**
          * 조회 결과로 값을 채운다.
-         * - 조회하는 사이 리스너가 울렸으면 리스너 값이 더 새것이므로 결과를 버린다.
+         * - 조회를 시작한 뒤 리스너가 울렸으면 리스너 값이 더 새것이므로 결과를 버린다(판정과 쓰기는 한 락 안에서).
          * - 조회가 실패·타임아웃이면 직전 값을 한 번은 유지하고, [UNREADABLE_AFTER_FAILURES]번 연달아 실패하면
          *   "읽지 못함"(null)으로 바꾼다. 처음부터 못 읽은 값은 원래 null이다.
          */
@@ -644,16 +642,31 @@ class PleosVehicleGateway(
             get: suspend () -> SdkOutcome<T>,
             transform: (Signals, T?) -> Signals,
         ) {
-            val events = eventsOf(key)
-            val before = events.get()
+            val ticket = freshness.beginRead(key)
             val outcome = get()
-            if (events.get() != before) return
-            if (outcome is SdkOutcome.Success) {
-                failuresOf(key).set(0)
-                update { transform(it, outcome.value) }
-            } else if (failuresOf(key).incrementAndGet() >= UNREADABLE_AFTER_FAILURES) {
-                update { transform(it, null) }
+            freshness.completeRead(ticket) {
+                if (outcome is SdkOutcome.Success) {
+                    failuresOf(key).set(0)
+                    update { transform(it, outcome.value) }
+                } else if (failuresOf(key).incrementAndGet() >= UNREADABLE_AFTER_FAILURES) {
+                    update { transform(it, null) }
+                }
             }
+        }
+
+        /**
+         * AAOS 값을 다시 읽어 반영한다. 폴링·변경 콜백·권한 재확인이 동시에 읽어도 나중에 시작한 읽기가 이긴다
+         * (먼저 시작한 읽기가 늦게 끝나 오래된 기어·주차 브레이크 값으로 덮지 않는다).
+         *
+         * @param reconnect true면 읽기 전에 쓸 수 있는 속성을 다시 확인한다(권한이 새로 부여됐을 때)
+         */
+        suspend fun refreshAaos(reconnect: Boolean = false) {
+            val ticket = freshness.beginRead(KEY_AAOS)
+            val fresh = withContext(Dispatchers.IO) {
+                if (reconnect) aaos.refresh()
+                aaos.read()
+            }
+            freshness.completeRead(ticket) { update { it.copy(aaos = fresh) } }
         }
 
         /**
@@ -701,14 +714,9 @@ class PleosVehicleGateway(
             }
             // AAOS 콜백은 "바뀌었다"는 신호만 준다. 값은 여기서 다시 읽는다
             scope.launch {
-                aaos.changes.drop(1).collect {
-                    val fresh = withContext(Dispatchers.IO) { aaos.read() }
-                    update { it.copy(aaos = fresh) }
-                }
+                aaos.changes.drop(1).collect { refreshAaos() }
             }
         }
-
-        private fun eventsOf(key: String): AtomicInteger = listenerEvents.getOrPut(key) { AtomicInteger(0) }
 
         private fun failuresOf(key: String): AtomicInteger = readFailures.getOrPut(key) { AtomicInteger(0) }
     }
@@ -716,7 +724,13 @@ class PleosVehicleGateway(
     private companion object {
         /** 근거: docs/sdk-notes.md 1.3 */
         const val VEHICLE_SERVICE_PACKAGE = "ai.pleos.playground.service.vehicle"
-        const val CONNECT_TIMEOUT_MS = 8_000L
+
+        /**
+         * 첫 capability 응답을 기다리는 시간. 실제 에뮬레이터에서 VehicleService가 콜드 스타트되어 onBind까지 약 13초,
+         * 그 뒤에도 서비스가 준비될 때까지 요청이 큐에 머물렀다. 서비스 패키지가 없는 기기는 [requireVehicleService]에서
+         * 바로 실패하므로 이 값 때문에 데모 대체가 늦어지지 않는다.
+         */
+        const val CONNECT_TIMEOUT_MS = 30_000L
 
         /** 충전 스위치에는 리스너가 없어 이 주기로 조회한다. 다른 값도 같은 주기로 다시 읽어 리스너를 보완한다. */
         const val POLL_INTERVAL_MS = 2_000L
@@ -731,6 +745,7 @@ class PleosVehicleGateway(
         const val KEY_CHARGE_SWITCH = "chargeSwitch"
         const val KEY_CHARGE_PORT = "chargePort"
         const val KEY_GEAR = "gear"
+        const val KEY_AAOS = "aaos"
         const val CONTROL_UNAVAILABLE = "차량 제어를 쓸 수 없음"
         const val FOREIGN_SNAPSHOT = "이 게이트웨이가 만든 스냅샷이 아님"
 

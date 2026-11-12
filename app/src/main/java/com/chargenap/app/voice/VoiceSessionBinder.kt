@@ -65,8 +65,12 @@ class VoiceSessionBinder(
         data class Heard(val text: String) : Event
         data class Availability(val available: Boolean) : Event
         data class RearQuestionSpoken(val epoch: Int) : Event
+        data class DoorQuestionSpoken(val epoch: Int) : Event
         data class RearTimeout(val epoch: Int) : Event
     }
+
+    /** 바인더가 끝까지 말했고 답을 기다리는 질문. 인식 결과는 이 질문의 답으로만 해석한다. */
+    private enum class Asked { REAR_SEAT, DOOR }
 
     /** [start]부터 [stop]까지의 한 번. 아래 필드는 이벤트 루프 코루틴만 읽고 쓴다. */
     private inner class Running {
@@ -87,8 +91,15 @@ class VoiceSessionBinder(
 
         // ---- SafetyCheck 안에서만 쓴다 ----
         private var waitSpoken: String? = null
+
+        /** 지금 떠 있는 뒷좌석 질문을 꺼냈다(말하는 중일 수 있다). */
         private var rearAsked = false
+
+        /** 그 질문을 끝까지 말했다. 이 뒤에 도착한 인식 결과만 뒷좌석 답으로 받는다. */
+        private var rearSpoken = false
         private var doorAsked = false
+        private var doorSpoken = false
+        private var doorEpoch = 0
         private var rearUnknowns = 0
         private var rearEpoch = 0
         private var rearTimer: Job? = null
@@ -115,7 +126,11 @@ class VoiceSessionBinder(
                 is Event.Notice -> onNotice(event.notice)
                 is Event.Heard -> onHeard(event.text)
                 is Event.Availability -> onAvailability(event.available)
-                is Event.RearQuestionSpoken -> if (event.epoch == rearEpoch) startRearTimer(event.epoch)
+                is Event.RearQuestionSpoken -> if (event.epoch == rearEpoch) {
+                    rearSpoken = true
+                    startRearTimer(event.epoch)
+                }
+                is Event.DoorQuestionSpoken -> if (event.epoch == doorEpoch) doorSpoken = true
                 is Event.RearTimeout -> if (event.epoch == rearEpoch) rearSeatUnanswered()
             }
         }
@@ -211,31 +226,63 @@ class VoiceSessionBinder(
             if (wait != null && wait != waitSpoken) say(wait, SpeechKind.STATE)
             waitSpoken = wait
 
+            if (!current.doorConfirmPending && doorAsked) {
+                // 도어 확인이 내려갔다(도어 값이 다시 읽힘 등). 다시 필요해지면 처음부터 묻는다.
+                speech.cancel(SpeechKind.QUESTION)
+                resetDoorQuestion()
+            }
+
             if (current.rearSeatQuestionPending) {
                 if (!rearAsked) {
+                    // 처음 묻거나, 도어가 열렸다 닫혀 동의가 무효가 된 뒤 다시 묻는다. 도어 확인도 그 뒤에 다시 받는다.
+                    speech.cancel(SpeechKind.QUESTION)
+                    resetDoorQuestion()
                     rearAsked = true
+                    rearSpoken = false
+                    rearUnknowns = 0
                     askRearSeat(phrases.rearSeatQuestion())
                 }
                 return
             }
             if (rearAsked) {
-                // 화면에서 답했다. 질문을 더 말하거나 기다리지 않는다.
+                // 화면에서 답했거나 도어·주차 브레이크 대기로 질문이 내려갔다. 질문을 더 말하거나 기다리지 않는다.
                 rearAsked = false
+                rearSpoken = false
                 cancelRearTimer()
                 speech.cancel(SpeechKind.QUESTION)
             }
             if (current.doorConfirmPending && !doorAsked) {
                 doorAsked = true
-                say(phrases.doorQuestion(), SpeechKind.QUESTION)
+                doorSpoken = false
+                val epoch = doorEpoch
+                say(phrases.doorQuestion(), SpeechKind.QUESTION) { events.trySend(Event.DoorQuestionSpoken(epoch)) }
             }
         }
 
         private fun resetSafetyCheck() {
             waitSpoken = null
             rearAsked = false
-            doorAsked = false
+            rearSpoken = false
+            resetDoorQuestion()
             rearUnknowns = 0
             cancelRearTimer()
+        }
+
+        /** 도어 질문을 다시 묻게 하고, 아직 도착하지 않은 "다 말했다" 이벤트를 무효로 만든다. */
+        private fun resetDoorQuestion() {
+            doorAsked = false
+            doorSpoken = false
+            doorEpoch++
+        }
+
+        /**
+         * 바인더가 이 SafetyCheck에서 실제로 끝까지 말했고 엔진도 아직 답을 기다리는 질문.
+         * 질문을 말하기 전에 도착한 인식 결과(예: 화면 [시작]과 동시에 한 "아니요")는 어느 질문의 답도 아니다.
+         */
+        private fun askedQuestion(current: NapSessionState.SafetyCheck): Asked? = when {
+            current.rearSeatQuestionPending -> if (rearAsked && rearSpoken) Asked.REAR_SEAT else null
+            current.doorConfirmPending -> if (doorAsked && doorSpoken) Asked.DOOR else null
+            else -> null
         }
 
         // ============================================================ 뒷좌석 질문
@@ -276,14 +323,14 @@ class VoiceSessionBinder(
             engine.answerRearSeat(null)
         }
 
-        private fun answerRearSeat(current: NapSessionState.SafetyCheck, clear: Boolean) {
-            if (!current.rearSeatQuestionPending) return
+        /** [askedQuestion]이 [Asked.REAR_SEAT]일 때만 부른다. */
+        private fun answerRearSeat(clear: Boolean) {
             cancelRearTimer()
             engine.answerRearSeat(clear)
         }
 
-        private fun rearSeatAnswerUnclear(current: NapSessionState.SafetyCheck) {
-            if (!current.rearSeatQuestionPending || !rearAsked) return
+        /** [askedQuestion]이 [Asked.REAR_SEAT]일 때만 부른다. */
+        private fun rearSeatAnswerUnclear() {
             rearUnknowns++
             if (rearUnknowns >= MAX_REAR_SEAT_UNKNOWNS) rearSeatUnanswered() else askRearSeat(phrases.rearSeatRetry())
         }
@@ -336,7 +383,8 @@ class VoiceSessionBinder(
         private fun onHeard(text: String) {
             if (!available) return
             val current = engine.state.value
-            val context = parseContext(current) ?: return
+            val asked = (current as? NapSessionState.SafetyCheck)?.let { askedQuestion(it) }
+            val context = parseContext(current, asked) ?: return
             val intent = IntentParser.parse(text, context)
             when (current) {
                 is NapSessionState.Offer -> when (intent) {
@@ -346,13 +394,14 @@ class VoiceSessionBinder(
                     else -> Unit
                 }
 
+                // 답은 바인더가 끝까지 말한 질문에 대해서만 받는다. "그만"은 언제나 받는다.
                 is NapSessionState.SafetyCheck -> when (intent) {
                     VoiceIntent.Wake -> engine.cancel()
-                    VoiceIntent.RearSeatClear -> answerRearSeat(current, clear = true)
-                    VoiceIntent.RearSeatOccupied -> answerRearSeat(current, clear = false)
-                    VoiceIntent.Unknown -> rearSeatAnswerUnclear(current)
-                    VoiceIntent.Yes -> if (awaitingDoorAnswer(current)) engine.confirmDoorsClosed()
-                    VoiceIntent.No -> if (awaitingDoorAnswer(current)) say(phrases.closeDoors(), SpeechKind.REPLY)
+                    VoiceIntent.RearSeatClear -> if (asked == Asked.REAR_SEAT) answerRearSeat(clear = true)
+                    VoiceIntent.RearSeatOccupied -> if (asked == Asked.REAR_SEAT) answerRearSeat(clear = false)
+                    VoiceIntent.Unknown -> if (asked == Asked.REAR_SEAT) rearSeatAnswerUnclear()
+                    VoiceIntent.Yes -> if (asked == Asked.DOOR) engine.confirmDoorsClosed()
+                    VoiceIntent.No -> if (asked == Asked.DOOR) say(phrases.closeDoors(), SpeechKind.REPLY)
                     else -> Unit
                 }
 
@@ -371,20 +420,20 @@ class VoiceSessionBinder(
             }
         }
 
-        /** 지금 상태에서 어떤 대답을 기다리는가. 듣지 않는 상태면 null. */
-        private fun parseContext(current: NapSessionState): ParseContext? = when (current) {
+        /**
+         * 지금 상태에서 어떤 대답을 기다리는가. 듣지 않는 상태면 null.
+         * SafetyCheck에서는 엔진 상태가 아니라 바인더가 실제로 끝까지 물은 질문([asked])으로 정한다.
+         */
+        private fun parseContext(current: NapSessionState, asked: Asked?): ParseContext? = when (current) {
             is NapSessionState.Offer, is NapSessionState.Briefing -> ParseContext.OFFER
-            is NapSessionState.SafetyCheck -> when {
-                current.rearSeatQuestionPending -> ParseContext.REAR_SEAT_QUESTION
-                current.doorConfirmPending -> ParseContext.DOOR_QUESTION
-                else -> ParseContext.GENERAL
+            is NapSessionState.SafetyCheck -> when (asked) {
+                Asked.REAR_SEAT -> ParseContext.REAR_SEAT_QUESTION
+                Asked.DOOR -> ParseContext.DOOR_QUESTION
+                null -> ParseContext.GENERAL
             }
             is NapSessionState.Preparing, is NapSessionState.Napping -> ParseContext.GENERAL
             else -> null
         }
-
-        private fun awaitingDoorAnswer(current: NapSessionState.SafetyCheck): Boolean =
-            !current.rearSeatQuestionPending && current.doorConfirmPending
 
         /** 기상 예정 시각까지 남은 분(올림). */
         private fun remainingMinutes(current: NapSessionState.Napping): Int {

@@ -451,13 +451,15 @@ class NapSessionEngineTest {
         charge(h)
         h.engine.requestStart()
         runCurrent()
-        h.engine.answerRearSeat(true)
         advance(5_000)
         val check = h.stateAs<NapSessionState.SafetyCheck>()
         assertEquals(CheckResult.FAIL, check.report.doors)
         assertTrue(h.fake.commandLog.isEmpty())
 
+        // 뒷좌석 질문은 문이 닫힌 뒤에 묻는다(rearSeatQuestion_waitsUntilDoorsClosed)
         h.fake.setDoorOpen(false)
+        runCurrent()
+        h.engine.answerRearSeat(true)
         runCurrent()
         assertTrue(h.state is NapSessionState.Preparing)
     }
@@ -469,14 +471,112 @@ class NapSessionEngineTest {
         charge(h)
         h.engine.requestStart()
         runCurrent()
-        h.engine.answerRearSeat(true)
         advance(5_000)
-        assertEquals(CheckResult.FAIL, h.stateAs<NapSessionState.SafetyCheck>().report.parkingBrake)
+        val check = h.stateAs<NapSessionState.SafetyCheck>()
+        assertEquals(CheckResult.FAIL, check.report.parkingBrake)
+        assertFalse("주차 브레이크를 기다리는 동안에는 뒷좌석을 묻지 않는다", check.rearSeatQuestionPending)
         assertTrue(h.fake.commandLog.isEmpty())
 
         h.fake.setParkingBrake(null)     // 값을 못 읽는 차종이면 건너뛴다
         runCurrent()
+        assertTrue(h.stateAs<NapSessionState.SafetyCheck>().rearSeatQuestionPending)
+        h.engine.answerRearSeat(true)
+        runCurrent()
         assertTrue(h.state is NapSessionState.Preparing)
+    }
+
+    @Test
+    fun rearSeatQuestion_waitsUntilDoorsClosed() = runTest {
+        val h = harness()
+        h.fake.setDoorOpen(true)
+        charge(h)
+        h.engine.requestStart()
+        runCurrent()
+        var check = h.stateAs<NapSessionState.SafetyCheck>()
+        assertEquals(CheckResult.FAIL, check.report.doors)
+        assertFalse("문이 열려 있는 동안에는 뒷좌석을 묻지 않는다", check.rearSeatQuestionPending)
+
+        h.engine.answerRearSeat(true)        // 아직 묻지 않은 질문의 답은 받지 않는다
+        advance(5_000)
+        assertFalse(h.stateAs<NapSessionState.SafetyCheck>().rearSeatQuestionPending)
+
+        h.fake.setDoorOpen(false)
+        runCurrent()
+        check = h.stateAs()
+        assertTrue("문이 닫히면 묻는다", check.rearSeatQuestionPending)
+        assertTrue(h.states.none { it is NapSessionState.Preparing })
+        assertTrue(h.fake.commandLog.isEmpty())
+
+        h.engine.answerRearSeat(true)
+        runCurrent()
+        assertEquals(NapSessionState.Preparing(20, SessionMode.NAP, seatConsent = true), h.state)
+    }
+
+    @Test
+    fun rearSeatConsent_invalidatedWhenDoorOpensDuringSafetyCheck() = runTest {
+        val h = harness()
+        h.fake.setDoorReadable(false)          // 도어 확인을 기다리느라 동의 뒤에도 SafetyCheck에 머문다
+        charge(h)
+        h.engine.requestStart()
+        runCurrent()
+        h.engine.answerRearSeat(true)          // "없어요"
+        runCurrent()
+        var check = h.stateAs<NapSessionState.SafetyCheck>()
+        assertFalse(check.rearSeatQuestionPending)
+        assertTrue(check.doorConfirmPending)
+
+        // 그사이 뒷문이 열렸다(누가 뒷좌석에 탈 수 있다)
+        h.fake.setDoorOpen(true)
+        h.fake.setDoorReadable(true)
+        runCurrent()
+        check = h.stateAs()
+        assertEquals(CheckResult.FAIL, check.report.doors)
+        assertFalse("대기 중에는 질문을 띄우지 않는다", check.rearSeatQuestionPending)
+
+        // 문이 닫혔다: 예전 동의로 시트를 눕히지 않고 다시 묻는다
+        h.fake.setDoorOpen(false)
+        advance(5_000)
+        check = h.stateAs()
+        assertTrue(check.rearSeatQuestionPending)
+        assertFalse(check.doorConfirmPending)
+        assertTrue(h.states.none { it is NapSessionState.Preparing })
+        assertTrue(h.fake.commandLog.isEmpty())
+
+        h.engine.answerRearSeat(true)
+        runCurrent()
+        assertEquals(NapSessionState.Preparing(20, SessionMode.NAP, seatConsent = true), h.state)
+    }
+
+    @Test
+    fun doorConfirmation_invalidatedWhenDoorReadsOpen() = runTest {
+        val h = harness(config = SessionConfig(seatControlEnabled = false))
+        h.fake.setDoorReadable(false)
+        h.fake.setParkingBrake(false)          // 주차 브레이크를 기다리느라 확인 뒤에도 SafetyCheck에 머문다
+        charge(h)
+        h.engine.requestStart()
+        runCurrent()
+        assertTrue(h.stateAs<NapSessionState.SafetyCheck>().doorConfirmPending)
+        h.engine.confirmDoorsClosed()
+        runCurrent()
+        assertFalse(h.stateAs<NapSessionState.SafetyCheck>().doorConfirmPending)
+
+        // 도어가 열림으로 읽혔다가 다시 값을 못 읽게 됐다
+        h.fake.setDoorOpen(true)
+        h.fake.setDoorReadable(true)
+        runCurrent()
+        assertEquals(CheckResult.FAIL, h.stateAs<NapSessionState.SafetyCheck>().report.doors)
+        h.fake.setDoorReadable(false)
+        runCurrent()
+        assertTrue("다시 확인을 받아야 한다", h.stateAs<NapSessionState.SafetyCheck>().doorConfirmPending)
+
+        h.fake.setParkingBrake(true)
+        advance(5_000)
+        assertTrue("확인 없이 진행하지 않는다", h.stateAs<NapSessionState.SafetyCheck>().doorConfirmPending)
+        assertTrue(h.fake.commandLog.isEmpty())
+
+        h.engine.confirmDoorsClosed()
+        runCurrent()
+        assertEquals(NapSessionState.Preparing(20, SessionMode.NAP, seatConsent = false), h.lastPreparing)
     }
 
     @Test
@@ -741,8 +841,61 @@ class NapSessionEngineTest {
         h.fake.failRestore = true
         h.engine.requestWake()
         runCurrent()
-        val summary = finishWaking(h)
+        advance(26_000)                           // 기상 바람 20초 + 복구 3번(사이 2초씩)
+        val summary = h.stateAs<NapSessionState.Briefing>().summary
         assertEquals(listOf("climate: 가상 공조 복구 오류", "seat: 가상 시트 복구 오류"), summary.failures)
+    }
+
+    @Test
+    fun restore_seatFailure_retriesUpToThreeTimes() = runTest {
+        val h = harness()
+        charge(h)
+        startNap(h)
+        h.fake.failRestore = true
+        h.engine.requestWake()
+        runCurrent()
+        advance(20_500)                           // 기상 바람 20초 뒤 첫 복구가 실패했다
+        assertEquals(1, h.fake.commandLog.count { it == "restore" })
+        assertTrue("시트 복구가 실패하면 다시 시도한다", h.state is NapSessionState.Waking)
+
+        h.fake.failRestore = false                // 2초 뒤 두 번째 시도는 성공한다
+        advance(3_000)
+        val summary = h.stateAs<NapSessionState.Briefing>().summary
+        assertEquals(2, h.fake.commandLog.count { it == "restore" })
+        assertTrue(summary.failures.isEmpty())
+        assertEquals(0, h.fake.seatReclineLevel.value)
+        assertEquals(initialClimate, h.fake.climate.value)
+
+        h.engine.shutdown()
+        assertEquals("복구가 끝났으면 종료할 때 다시 하지 않는다", 2, h.fake.commandLog.count { it == "restore" })
+    }
+
+    @Test
+    fun restore_persistentFailure_reportsAndShutdownRetries() = runTest {
+        val h = harness()
+        charge(h)
+        startNap(h)
+        h.fake.failRestore = true
+        h.engine.requestWake()
+        runCurrent()
+        advance(20_500)
+        assertTrue(h.state is NapSessionState.Waking)
+        advance(5_000)                            // 2초 간격으로 두 번 더 시도
+        val summary = h.stateAs<NapSessionState.Briefing>().summary
+        assertEquals(3, h.fake.commandLog.count { it == "restore" })
+        assertEquals(listOf("climate: 가상 공조 복구 오류", "seat: 가상 시트 복구 오류"), summary.failures)
+        assertEquals(60, h.fake.seatReclineLevel.value)
+
+        advance(10_000)
+        assertEquals("세 번 실패하면 더 시도하지 않는다", 3, h.fake.commandLog.count { it == "restore" })
+
+        // 스냅샷을 버리지 않았으므로 종료할 때 한 번 더 복구한다
+        h.fake.failRestore = false
+        h.engine.shutdown()
+        assertEquals(4, h.fake.commandLog.count { it == "restore" })
+        assertEquals(0, h.fake.seatReclineLevel.value)
+        assertEquals(initialClimate, h.fake.climate.value)
+        assertEquals(NapSessionState.Idle, h.state)
     }
 
     // ---------------------------------------------------------------- 중단
@@ -959,6 +1112,9 @@ class NapSessionEngineTest {
 
         h.fake.setGearInPark(false)
         advance(1_000)
+        assertTrue("시트 복구를 다시 시도하는 동안은 복구 중이다", h.stateAs<NapSessionState.Aborted>().restoring)
+        advance(4_000)                            // 복구 3번(사이 2초씩)
+        assertEquals(3, h.fake.commandLog.count { it == "restore" })
         val aborted = h.stateAs<NapSessionState.Aborted>()
         assertFalse(aborted.restoring)
         assertTrue(aborted.restore!!.seatFailed)

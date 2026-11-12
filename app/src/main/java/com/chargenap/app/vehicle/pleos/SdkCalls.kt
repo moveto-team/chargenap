@@ -102,7 +102,8 @@ internal class SdkCalls(private val defaultTimeoutMs: Long = DEFAULT_TIMEOUT_MS)
     )
 
     companion object {
-        const val DEFAULT_TIMEOUT_MS = 3_000L
+        /** 부하가 높은 에뮬레이터에서는 정상 응답도 3초를 자주 넘겼다(실측). */
+        const val DEFAULT_TIMEOUT_MS = 5_000L
     }
 }
 

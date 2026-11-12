@@ -129,7 +129,10 @@ class NapSessionEngine(
     /** `SafetyCheck` → `Idle`. `Preparing`/`Napping`에서는 [requestWake]와 같다. */
     fun cancel() = post(Event.Cancel)
 
-    /** 뒷좌석 질문의 답. true("없어요")만 시트 이동을 허용한다. false("있어요")와 null(무응답)은 시트를 그대로 둔다. */
+    /**
+     * 뒷좌석 질문의 답. true("없어요")만 시트 이동을 허용한다. false("있어요")와 null(무응답)은 시트를 그대로 둔다.
+     * `SafetyCheck.rearSeatQuestionPending`이 true일 때만 받는다. 답한 뒤 도어가 열리면 무효가 되고 다시 묻는다.
+     */
     fun answerRearSeat(clear: Boolean?) = post(Event.AnswerRearSeat(clear))
 
     /** 도어 값을 읽지 못할 때의 사용자 확인. 도어 열림으로 중단된 상태에서는 "닫았으니 복구해도 된다"는 확인이다. */
@@ -338,21 +341,36 @@ class NapSessionEngine(
             _state.value = NapSessionState.Idle
             return
         }
+        if (v.doorOpen == true) revokeConfirmations(s, v)
         val doorConfirmPending = report.doors == CheckResult.NEEDS_USER_CONFIRM && !s.doorConfirmed
         if (!report.mustWait && !doorConfirmPending && !s.rearSeatPending) {
             startPreparing(s, v)
         } else {
+            // 뒷좌석 질문은 도어·주차 브레이크 대기가 풀린 뒤에만 띄운다. 문이 열려 있는 동안 받은 답은 믿을 수 없다.
+            val rearSeatQuestion = s.rearSeatPending && !report.mustWait
             _state.value =
-                NapSessionState.SafetyCheck(s.plannedMinutes, s.mode, report, s.rearSeatPending, doorConfirmPending)
+                NapSessionState.SafetyCheck(s.plannedMinutes, s.mode, report, rearSeatQuestion, doorConfirmPending)
         }
+    }
+
+    /**
+     * 확인을 받은 뒤 도어가 열리면 그사이 누가 뒷좌석에 타거나 짐을 실었을 수 있다.
+     * 시트 이동 동의와 "문 닫았어요" 확인을 무효로 하고, 도어가 닫히면 다시 묻는다.
+     */
+    private fun revokeConfirmations(s: Session, v: Vehicle) {
+        s.seatConsent = false
+        s.doorConfirmed = false
+        s.rearSeatPending = SafetyGuard.shouldAskRearSeat(config.value, v.capabilities, s.mode)
     }
 
     private fun onAnswerRearSeat(clear: Boolean?) {
         val s = session ?: return
-        if (_state.value !is NapSessionState.SafetyCheck || !s.rearSeatPending) return
+        val current = _state.value as? NapSessionState.SafetyCheck ?: return
+        // 질문을 띄운 상태에서 온 답만 받는다. 대기 중(질문을 내린 동안)에 온 답은 버린다.
+        if (!current.rearSeatQuestionPending || !s.rearSeatPending) return
         s.rearSeatPending = false
         s.seatConsent = clear == true
-        evaluateSafetyCheck(refresh())
+        evaluateSafetyCheck(refresh())      // 그사이 도어가 열렸으면 여기서 다시 무효가 된다
     }
 
     private fun onConfirmDoorsClosed() {
@@ -532,7 +550,7 @@ class NapSessionEngine(
                 guarded(seat = false, climate = true) { gateway.applyWakePreset() }
                     .also { waitOnSessionClock(timings.wakeBreezeMillis) }
             }
-            val restore = restoreCabin(s)
+            val restore = restoreCabinWithRetry(s)
             val rangeKm = try {
                 gateway.rangeRemainingKm()
             } catch (e: CancellationException) {
@@ -548,7 +566,7 @@ class NapSessionEngine(
         if (event.workId != workId || _state.value !is NapSessionState.Waking) return
         val s = session ?: return
         work = null
-        s.snapshot = null
+        keepSnapshotIfSeatNotRestored(s, event.restore)
         event.wake?.let { s.failures += it.errors }
         s.failures += event.restore.errors
         _state.value = NapSessionState.Briefing(
@@ -610,7 +628,7 @@ class NapSessionEngine(
             return
         }
         launchWork { id ->
-            val result = restoreCabin(s)
+            val result = restoreCabinWithRetry(s)
             loopEvents.send(Event.RestoreDone(id, result))
         }
     }
@@ -624,7 +642,7 @@ class NapSessionEngine(
 
     private fun finishAbortRestore(s: Session, reason: AbortReason, result: CabinApplyResult) {
         work = null
-        s.snapshot = null
+        keepSnapshotIfSeatNotRestored(s, result)
         s.abortFinishedAtMillis = clock.nowMillis()
         _state.value = NapSessionState.Aborted(reason, restoring = false, restore = result)
     }
@@ -678,11 +696,12 @@ class NapSessionEngine(
 
     private suspend fun shutdownNow() {
         cancelWork()
+        // 아직 복구하지 않았거나 시트 복구가 끝내 실패해 스냅샷이 남아 있으면 한 번 더 복구한다.
+        session?.let { restoreCabin(it) }
         if (_state.value is NapSessionState.Briefing) {
-            finishBriefing()        // 이미 복구가 끝난 세션이므로 기록만 남긴다
+            finishBriefing()        // 기록을 남긴다
             return
         }
-        session?.let { restoreCabin(it) }
         session = null
         _state.value = NapSessionState.Idle
     }
@@ -707,6 +726,26 @@ class NapSessionEngine(
         return guarded(seat = snapshot.seat != null, climate = snapshot.climate != null) {
             gateway.restoreCabin(snapshot)
         }
+    }
+
+    /**
+     * 시트 복구가 실패하면 세션 시계로 [RESTORE_RETRY_MILLIS] 뒤에 다시 시도한다. 모두 [RESTORE_ATTEMPTS]번.
+     * 운전 자세로 돌아가는 것이 가장 중요하므로 공조만 실패한 것은 다시 시도하지 않는다. 결과는 마지막 시도의 것이다.
+     */
+    private suspend fun restoreCabinWithRetry(s: Session): CabinApplyResult {
+        var result = restoreCabin(s)
+        var attempts = 1
+        while (result.seatFailed && attempts < RESTORE_ATTEMPTS) {
+            waitOnSessionClock(RESTORE_RETRY_MILLIS)
+            result = restoreCabin(s)
+            attempts++
+        }
+        return result
+    }
+
+    /** 시트를 되돌리지 못했으면 스냅샷을 남겨 종료([shutdown]) 때 한 번 더 복구한다. 되돌렸으면 지운다. */
+    private fun keepSnapshotIfSeatNotRestored(s: Session, result: CabinApplyResult) {
+        if (!result.seatFailed) s.snapshot = null
     }
 
     /** 게이트웨이는 예외를 던지지 않기로 했지만, 던지더라도 세션이 멈추지 않게 실패 항목으로 바꾼다. */
@@ -762,7 +801,10 @@ class NapSessionEngine(
         var doorConfirmed = false
         var sawCharging = false
 
-        /** 복구해야 할 캐빈 상태. null이면 복구할 것이 없다(아직 안 건드렸거나 이미 복구했다). */
+        /**
+         * 복구해야 할 캐빈 상태. null이면 복구할 것이 없다(아직 안 건드렸거나 이미 복구했다).
+         * 시트 복구가 끝내 실패하면 지우지 않고 남겨 종료 때 한 번 더 복구한다.
+         */
         @Volatile var snapshot: CabinSnapshot? = null
         var cabin: CabinApplyResult = CabinApplyResult.NOTHING
         val failures = mutableListOf<String>()
@@ -813,5 +855,7 @@ class NapSessionEngine(
         const val CHARGE_MARGIN_MILLIS = 5 * MINUTE_MILLIS
         const val RESCHEDULE_NOTICE_MILLIS = MINUTE_MILLIS
         const val EVENT_BUFFER = 64
+        const val RESTORE_ATTEMPTS = 3
+        const val RESTORE_RETRY_MILLIS = 2_000L
     }
 }
