@@ -24,7 +24,7 @@
 | 항목 | 방법 | 결과 |
 | --- | --- | --- |
 | 빌드 | `./gradlew assembleDebug assembleRelease` | 성공 |
-| 단위 테스트 | `./gradlew testDebugUnitTest` | 416개 통과, 실패 0 (영상 프레임 생성 1개는 평소 건너뜀) |
+| 단위 테스트 | `./gradlew testDebugUnitTest` | 418개 통과, 실패 0 (영상·애니메이션 프레임 캡처 19개는 평소 건너뜀) |
 | 세션 엔진 | 정상 흐름, 충전 완료 조기 기상, 충전 중단, 도어 열림, 기어 변경, "5분 더" 허용·거절, 캐빈 일부 실패, 동의 후 도어 열림 시 동의 무효화, 복구 실패 재시도 | 통과 |
 | 추정기 | SDK 값 우선, 표본 추정, 표본 부족, 증가율 0, 경계값(14→호흡, 15→10분, 27→20분, 45→25분, 10분 미만→제안 없음) | 통과 |
 | 차량 연동(순수 로직) | 충전 상태 매핑, 리클라인 목표 계산, 풍량·온도 변환, 시트 정지 재전송, 조회·리스너 값 경쟁, AAOS 기어 UNKNOWN | 통과 |
@@ -47,7 +47,7 @@
 3. **원인: Android `car_service`가 준비되지 않음.** 부팅 직후 Pleos 차량 HAL 서비스(`vehicle_ext`, `vehicle_diagnostic`, `diagnostic_report`, `adas`, `placesense`, `profile` — Rust SDV 서비스)가 초기화(`App::new`)에서 패닉으로 종료되기를 수백 번 반복했고, Pleos 시스템 앱 전체가 `car_service not ready, waited for car service (ms):8015000`을 기록했다. RAM 2GB·3GB, GPU 소프트웨어·하드웨어 설정을 바꿔 세 번 콜드 부팅해도 같았다. 시스템 이미지 쪽 문제라 앱에서 해결할 수 없다.
 4. **Virtual Console.** HTTP API(`/vehicle/gear`, `/vehicle/ev-battery`, `/vehicle/body`, `/vehicle/seat`, `/vehicle/hvac`, `/vehicle/power-system/simulator`)로 값 주입이 된다. 단 브라우저 세션 하트비트(`POST /browser/session`, 1초 주기)가 있어야 하고, 없으면 `{"error":"emulator_inactive"}`. `scripts/vconsole.sh`가 이를 처리한다. 전원 상태(`power_system`)는 기본으로 발행되지 않아 `On`으로 직접 설정했다.
 5. **음성.** 에뮬레이터에는 Pleos 음성 서비스(CAAS)만 있고 온디바이스 엔진이 없어 TTS·STT 모두 `ON_DEVICE_ENGINE_ERROR`. 서버 모드는 Pleos Playground 앱 등록(Client ID/Secret)이 필요하다. 앱은 음성이 꺼진 상태로 터치만으로 동작했다.
-6. **화면 캡처.** `-gpu host`에서는 `screencap`이 흰 화면, 소프트웨어 렌더링에서는 부하(load 40 이상)로 녹화가 어렵다. 그래서 시연 영상의 앱 장면은 실제 화면 코드를 세션 엔진·가상 차량과 돌리며 캡처했고(`DemoVideoFrames`), 실제 에뮬레이터 실행 화면을 한 장면으로 넣었다.
+6. **화면 캡처.** `-gpu host`에서는 `screencap`이 흰 화면, 소프트웨어 렌더링에서는 부하(load 40 이상)로 녹화가 어렵다. 그래서 시연 영상의 앱 장면은 실제 화면 코드에 세션 상태를 엔진 흐름 순서대로 넣으며 캡처했다(`DemoVideoClips`, 30fps). 에뮬레이터 실행 화면은 `docs/screenshots/emulator/`에 있다.
 
 ### 2차 PT 전에 할 일 (실행 검증)
 
@@ -73,6 +73,12 @@
 - 계층별 서브에이전트가 각자 git worktree에서 구현하고 메인 세션이 병합했다. 계획과 계약: `docs/superpowers/plans/2026-11-11-chargenap.md`.
 - 독립 코드 리뷰에서 안전 관련 결함 9건(동의 무효화 누락, 백그라운드 감시 중단 가능성, 벽시계 타이머, STOP 실패 처리, 복구 재시도, 값 경쟁, AAOS 기어 UNKNOWN, 음성 답 순서, 저장 예외)을 찾아 모두 고쳤다.
 - 실제 에뮬레이터에서 찾아 고친 것: 연결 대기 8초 → 30초(서비스 콜드 스타트), 데모 60배속 → 30배속·시작 잔량 30%(느린 기기에서 조작할 틈), 데모 충전 재시작.
+
+### 시연 영상·앱 애니메이션 개선 (2026-11-12)
+
+- 앱: 화면 전환(밀려 들어옴·어두워짐·밝아짐), 홈 링 차오름·숫자 카운트, 안전 확인 체크 그리기, 준비 중 시트 젖힘·바람 흐름, 수면 호흡 원·숫자 구르기·물결, 기상 새벽빛, 브리핑 카운트업, 중단 경고 흔들림·복구 체크, 리포트 막대 자라남, 안내 떠오름. 안전 동작(세션 흐름·제어 순서)은 바꾸지 않았다. 단위 테스트 418개 통과.
+- 영상: 모션 그래픽 중심으로 다시 만들었다(2분 2초, 15장면, 심사 기준별 구성은 `docs/demo-script.md`). 앱 장면은 `DemoVideoClips`로 실제 화면 코드를 30fps 연속 캡처했고, 내레이션은 ElevenLabs "Jian", 화면 요소는 내레이션 단어 시각에 맞췄다. 음성 조작 장면은 재현 화면이라고 화면에 적었다.
+- release APK를 애니메이션이 들어간 코드로 다시 빌드했다.
 
 ### 알려진 한계
 

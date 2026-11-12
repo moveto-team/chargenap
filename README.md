@@ -72,7 +72,7 @@ Virtual Console은 브라우저 세션(1초 주기 하트비트)이 있어야 �
 scripts/bootstrap-toolchain.sh     # JDK 17·Android SDK를 홈 디렉터리에 설치 (이미 있으면 생략)
 source scripts/env.sh
 ./gradlew assembleDebug            # 디버그 APK
-./gradlew testDebugUnitTest        # 단위 테스트 416개
+./gradlew testDebugUnitTest        # 단위 테스트 418개
 scripts/package-release.sh Moveto  # 서명된 release APK → apk/Moveto_ChargeNap_release.apk
 ```
 
@@ -117,7 +117,7 @@ release 빌드에는 저장소 루트의 `keystore.properties`(커밋하지 않�
 
 | 검증 | 결과 |
 | --- | --- |
-| 단위 테스트 416개 (세션 엔진, 충전 시간 추정, 안전 가드, 차량 값 변환·시트 정지, 음성 해석·바인더, 화면 상호작용, 통합, 앱 실행) | 통과 |
+| 단위 테스트 418개 (세션 엔진, 충전 시간 추정, 안전 가드, 차량 값 변환·시트 정지, 음성 해석·바인더, 화면 상호작용, 통합, 앱 실행) | 통과 (영상·프레임 캡처용 19개는 `-Pchargenap.video=true`일 때만 실행) |
 | 화면 스냅샷 31장 (2,560×1,440, 21:9, 4:3) | 잘림·겹침 없음 |
 | Pleos Connect Emulator 2.1.0에 release APK 설치·실행 | 확인 |
 | 에뮬레이터에서 데모 모드로 제안 → 안전 확인 → 수면 → 기상 → 브리핑, 도어 열림 중단·복구 | 확인(시연 영상) |
