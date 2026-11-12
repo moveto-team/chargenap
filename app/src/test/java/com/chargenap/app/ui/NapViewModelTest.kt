@@ -225,6 +225,49 @@ class NapViewModelTest {
     }
 
     @Test
+    fun breathingGuide_fromNapStartUntilEngineFinishesIt() = runTest {
+        val h = harness()
+        assertFalse(h.ui.breathingGuide)
+
+        startNap(h, sdkRemainingMinutes = 45, minutes = 20)
+        assertTrue(h.ui.breathingGuide)
+        advance(60_000)
+        assertTrue(h.ui.breathingGuide)
+
+        // 수면 시작 2분 뒤 엔진이 BreathingGuideFinished를 보내면 백색소음 구간이다.
+        advance(61_000)
+        assertFalse(h.ui.breathingGuide)
+        advance(60_000)
+        assertFalse(h.ui.breathingGuide)
+
+        h.vm.requestWake()
+        runCurrent()
+        assertFalse(h.ui.breathingGuide)
+    }
+
+    @Test
+    fun breathingGuide_startsAgainForNextNap() = runTest {
+        val h = harness()
+        startNap(h, sdkRemainingMinutes = 45, minutes = 10)
+        advance(3 * 60_000L)
+        assertFalse(h.ui.breathingGuide)
+        h.vm.requestWake()
+        runCurrent()
+        advance(22_000)
+        h.vm.acknowledgeBriefing()
+        runCurrent()
+
+        // 다음 세션은 다시 호흡 안내부터 시작한다.
+        h.vm.requestStart(10)
+        runCurrent()
+        h.vm.answerRearSeat(true)
+        runCurrent()
+        advance(1_000)
+        h.session<NapSessionState.Napping>()
+        assertTrue(h.ui.breathingGuide)
+    }
+
+    @Test
     fun declineOffer_returnsToIdle() = runTest {
         val h = harness()
         h.fake.setRemainingChargeMinutes(27)

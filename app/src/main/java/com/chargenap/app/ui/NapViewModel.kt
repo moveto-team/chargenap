@@ -11,6 +11,7 @@ import com.chargenap.app.session.NapSessionEngine
 import com.chargenap.app.session.NapSessionState
 import com.chargenap.app.session.SafetyReport
 import com.chargenap.app.session.SessionNotice
+import com.chargenap.app.session.SessionTimings
 import com.chargenap.app.vehicle.ChargingState
 import com.chargenap.app.vehicle.DemoVehicleControls
 import com.chargenap.app.vehicle.ParkState
@@ -67,6 +68,9 @@ class NapViewModel(
     private val notice = MutableStateFlow<UiNotice?>(null)
     private var noticeJob: Job? = null
 
+    /** 호흡 안내가 끝났다는 알림(`BreathingGuideFinished`)을 받은 수면 세션의 시작 시각. */
+    private val breathingFinishedFor = MutableStateFlow<Long?>(null)
+
     private val vehicleValues: Flow<VehicleValues> = combine(
         gateway.chargingState,
         gateway.batteryPercent,
@@ -91,7 +95,8 @@ class NapViewModel(
         StoredValues(settings, records, records.sortedByDescending { it.startedAtMillis }.take(RECENT_LIMIT))
     }
 
-    private val transientValues: Flow<TransientValues> = combine(notice, voiceAvailable, ::TransientValues)
+    private val transientValues: Flow<TransientValues> =
+        combine(notice, voiceAvailable, breathingFinishedFor, ::TransientValues)
 
     val uiState: StateFlow<NapUiState> = combine(
         vehicleValues,
@@ -114,7 +119,7 @@ class NapViewModel(
             ),
             EngineValues(engine.state.value, engine.estimatedRemainingChargeMinutes.value, engine.startBlockers.value),
             StoredValues(AppSettings(), emptyList(), emptyList()),
-            TransientValues(null, voiceAvailable.value),
+            TransientValues(null, voiceAvailable.value, null),
         ),
     )
 
@@ -131,7 +136,12 @@ class NapViewModel(
                 }
         }
         scope.launch {
-            engine.notices.collect { sessionNotice -> toUiNotice(sessionNotice)?.let(::show) }
+            engine.notices.collect { sessionNotice ->
+                if (sessionNotice == SessionNotice.BreathingGuideFinished) {
+                    (engine.state.value as? NapSessionState.Napping)?.let { breathingFinishedFor.value = it.startedAtMillis }
+                }
+                toUiNotice(sessionNotice)?.let(::show)
+            }
         }
     }
 
@@ -162,8 +172,16 @@ class NapViewModel(
             demoControlsAvailable = demoControls != null,
             fallbackReason = fallbackReason,
             voiceAvailable = transient.voiceAvailable,
+            breathingGuide = napping != null && breathingGuideActive(napping, transient.breathingFinishedFor, now),
         )
     }
+
+    /**
+     * 수면 시작부터 엔진의 `BreathingGuideFinished` 알림까지가 호흡 안내 구간이다. 알림을 놓친 경우(수면 중에
+     * ViewModel이 새로 만들어진 경우)에도 끝없이 이어지지 않도록 엔진 기본 구간 길이가 지나면 끝난 것으로 본다.
+     */
+    private fun breathingGuideActive(napping: NapSessionState.Napping, finishedFor: Long?, now: Long): Boolean =
+        finishedFor != napping.startedAtMillis && now - napping.startedAtMillis < BREATHING_GUIDE_FALLBACK_MILLIS
 
     private fun toUiNotice(sessionNotice: SessionNotice): UiNotice? = when (sessionNotice) {
         is SessionNotice.StartBlocked -> UiNotice.StartBlocked(
@@ -298,10 +316,17 @@ class NapViewModel(
         val recent: List<SessionRecord>,
     )
 
-    private data class TransientValues(val notice: UiNotice?, val voiceAvailable: Boolean)
+    private data class TransientValues(
+        val notice: UiNotice?,
+        val voiceAvailable: Boolean,
+        val breathingFinishedFor: Long?,
+    )
 
     companion object {
         const val TICK_MILLIS = 200L
+
+        /** 호흡 안내 알림을 받지 못했을 때 쓰는 구간 길이. 엔진 기본값과 같다. */
+        private val BREATHING_GUIDE_FALLBACK_MILLIS = SessionTimings().breathingGuideMillis
         const val NOTICE_MILLIS = 4_000L
         const val EXTEND_MINUTES = 5
         const val RECENT_LIMIT = 30

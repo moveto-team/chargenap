@@ -19,6 +19,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.chargenap.app.ui.theme.NapColors
@@ -42,7 +43,11 @@ fun NapCard(
     )
 }
 
-/** 이름표 + 큰 수치 + 단위. 브리핑과 리포트에 쓴다. */
+/**
+ * 이름표 + 큰 수치 + 단위. 브리핑과 리포트에 쓴다.
+ *
+ * @param finalValue 숫자를 세어 올리는 중이면 마지막 값. 그 너비를 미리 잡아 두어 세는 동안 단위가 옆으로 밀리지 않는다
+ */
 @Composable
 fun StatTile(
     label: String,
@@ -51,19 +56,31 @@ fun StatTile(
     unit: String? = null,
     valueColor: Color = NapColors.TextPrimary,
     caption: String? = null,
+    finalValue: String? = null,
 ) {
     NapCard(modifier = modifier, contentPadding = PaddingValues(horizontal = 32.dp, vertical = 26.dp)) {
         Column {
             Text(text = label, style = NapType.BodySmall, color = NapColors.TextSecondary, maxLines = 1)
             Spacer(Modifier.height(10.dp))
             Row(verticalAlignment = Alignment.Bottom) {
-                Text(
-                    text = value,
-                    style = NapType.Stat,
-                    color = valueColor,
-                    maxLines = 1,
-                    modifier = Modifier.alignByBaseline(),
-                )
+                Box(Modifier.alignByBaseline()) {
+                    if (finalValue != null && finalValue != value) {
+                        // 자리만 잡는 투명한 글자. 의미(접근성·테스트)에는 넣지 않는다.
+                        Text(
+                            text = finalValue,
+                            style = NapType.Stat,
+                            color = Color.Transparent,
+                            maxLines = 1,
+                            modifier = Modifier.clearAndSetSemantics {},
+                        )
+                    }
+                    Text(
+                        text = value,
+                        style = NapType.Stat,
+                        color = valueColor,
+                        maxLines = 1,
+                    )
+                }
                 if (unit != null) {
                     Spacer(Modifier.width(10.dp))
                     Text(

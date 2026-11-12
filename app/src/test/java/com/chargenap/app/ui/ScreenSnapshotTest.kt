@@ -17,7 +17,10 @@ import com.chargenap.app.ui.report.sampleRecords
 import com.chargenap.app.vehicle.CabinApplyResult
 import com.chargenap.app.vehicle.ChargingState
 import com.chargenap.app.vehicle.VehicleCapabilities
+import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onRoot
 import com.github.takahirom.roborazzi.captureRoboImage
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -36,6 +39,9 @@ import java.time.ZoneId
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [34], qualifiers = "w2560dp-h1440dp-land-mdpi", application = Application::class)
 class ScreenSnapshotTest {
+
+    @get:Rule
+    val compose = createComposeRule()
 
     private val zone = ZoneId.of("Asia/Seoul")
     private val today = LocalDate.of(2026, 11, 12)
@@ -90,6 +96,13 @@ class ScreenSnapshotTest {
         failures = emptyList(),
     )
 
+    /**
+     * 화면을 그리고 들어오는 애니메이션(고리 채우기, 카드 떠오르기, 숫자 세기, 막대 자라기)이 끝난 최종 모습을 찍는다.
+     *
+     * `waitForIdle()`은 테스트 시계를 애니메이션이 끝날 때까지 흘린다. 무한 애니메이션(충전 맥동, 호흡 원, 바람 곡선,
+     * 복구 중 호)은 Compose 테스트 정책상 테스트 시계에서 돌지 않으므로 첫 모습으로 멈춘 채 찍힌다.
+     * 코루틴 `delay`(수면 화면 버튼이 3초 뒤 사라지는 것)는 흘리지 않는다.
+     */
     private fun capture(
         name: String,
         state: NapUiState,
@@ -97,7 +110,7 @@ class ScreenSnapshotTest {
         demoPanelExpanded: Boolean = false,
         sleepControlsVisible: Boolean = false,
     ) {
-        captureRoboImage(filePath = "../docs/screenshots/$name.png") {
+        compose.setContent {
             ChargeNapContent(
                 state = state,
                 actions = NoopNapActions,
@@ -109,6 +122,8 @@ class ScreenSnapshotTest {
                 zone = zone,
             )
         }
+        compose.waitForIdle()
+        compose.onRoot().captureRoboImage(filePath = "../docs/screenshots/$name.png")
     }
 
     // ---------------------------------------------------------------- 홈
@@ -233,10 +248,11 @@ class ScreenSnapshotTest {
 
     // ---------------------------------------------------------------- 수면
 
+    /** 수면 시작 1분 18초 뒤라 호흡 안내 구간이다(숫자 뒤 호흡 원, "들이마시고"). */
     @Test
     fun sleep() = capture(
         "20_sleep",
-        charging(napping(), demo = false).copy(remainingSeconds = 18 * 60 + 42),
+        charging(napping(), demo = false).copy(remainingSeconds = 18 * 60 + 42, breathingGuide = true),
     )
 
     @Test

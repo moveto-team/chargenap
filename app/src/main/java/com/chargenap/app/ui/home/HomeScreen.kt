@@ -1,5 +1,14 @@
 package com.chargenap.app.ui.home
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.MutableTransitionState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -19,13 +28,17 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextAlign
@@ -46,12 +59,20 @@ import com.chargenap.app.ui.startBlockReasonLabel
 import com.chargenap.app.ui.theme.ChargeNapTheme
 import com.chargenap.app.ui.theme.DesignCanvas
 import com.chargenap.app.ui.theme.NapColors
+import com.chargenap.app.ui.theme.NapMotion
 import com.chargenap.app.ui.theme.NapType
 import com.chargenap.app.vehicle.ChargingState
+import kotlin.math.roundToInt
 
 /** 직접 고를 수 있는 파워냅 길이(분). */
 private val DURATION_OPTIONS = listOf(10, 15, 20, 25)
 private const val DEFAULT_DURATION = 20
+
+/** 잔량 고리가 차오르는 시간. */
+private const val RING_FILL_MILLIS = 1_100
+
+/** 오른쪽 카드는 고리가 차오르기 시작한 뒤 조금 늦게 떠오른다. */
+private const val CARD_DELAY_MILLIS = 120
 
 /**
  * 홈. 왼쪽에 충전 상태(잔량 고리, 상태, 남은 시간), 오른쪽에 제안 카드 또는 시간 선택 카드.
@@ -90,44 +111,99 @@ fun HomeScreen(
         Spacer(Modifier.height(20.dp))
         Row(Modifier.fillMaxWidth().weight(1f), horizontalArrangement = Arrangement.spacedBy(40.dp)) {
             ChargeSummary(state, Modifier.weight(0.85f).fillMaxHeight())
-            NapCard(Modifier.weight(1.15f).fillMaxHeight()) {
-                val offer = state.session as? NapSessionState.Offer
-                when (val recommendation = offer?.recommendation) {
-                    is Recommendation.Nap -> OfferContent(
-                        title = stringResource(R.string.home_offer_nap_title, recommendation.minutes),
-                        body = stringResource(
-                            R.string.home_offer_nap_body,
-                            state.settings.targetPercent,
-                            recommendation.remainingChargeMinutes,
-                        ),
-                        voiceHint = state.voiceAvailable,
-                        onStart = { onStart(recommendation.minutes) },
-                        onDecline = onDecline,
-                    )
-                    is Recommendation.Breathing -> OfferContent(
-                        title = stringResource(R.string.home_offer_breathing_title, recommendation.minutes),
-                        body = stringResource(R.string.home_offer_breathing_body),
-                        voiceHint = state.voiceAvailable,
-                        onStart = { onStart(recommendation.minutes) },
-                        onDecline = onDecline,
-                    )
-                    is Recommendation.ChooseDuration -> ChooseContent(
-                        options = recommendation.options,
-                        onStart = onStart,
-                        onDecline = onDecline,
-                    )
-                    Recommendation.None, null -> PickContent(state = state, onStart = onStart)
+            // 카드는 홈이 나타날 때 아래에서 떠오르며 들어온다.
+            val cardVisible = remember { MutableTransitionState(false).apply { targetState = true } }
+            AnimatedVisibility(
+                visibleState = cardVisible,
+                modifier = Modifier.weight(1.15f).fillMaxHeight(),
+                enter = fadeIn(tween(NapMotion.MEDIUM, delayMillis = CARD_DELAY_MILLIS)) +
+                    slideInVertically(tween(NapMotion.LONG, CARD_DELAY_MILLIS, NapMotion.Enter)) { it / 10 },
+                label = "homeCard",
+            ) {
+                NapCard(Modifier.fillMaxSize()) {
+                    val offer = state.session as? NapSessionState.Offer
+                    // 제안이 바뀌면(속도 재는 중 → "20분 파워냅 어때요?") 내용이 떠오르며 교차 전환된다.
+                    AnimatedContent(
+                        targetState = offer?.recommendation,
+                        modifier = Modifier.fillMaxSize(),
+                        contentKey = ::cardKey,
+                        transitionSpec = {
+                            (
+                                fadeIn(tween(NapMotion.MEDIUM, delayMillis = 120)) +
+                                    slideInVertically(tween(NapMotion.LONG, easing = NapMotion.Enter)) { it / 12 }
+                                ) togetherWith fadeOut(tween(NapMotion.SHORT))
+                        },
+                        label = "homeCardContent",
+                    ) { recommendation ->
+                        CardContent(recommendation, state, onStart, onDecline)
+                    }
                 }
             }
         }
     }
 }
 
-/** 잔량 고리 + 충전 상태 + 목표까지 남은 시간. */
+/** 이 값이 같으면 같은 카드로 보고 교차 전환 없이 글자만 바꾼다. */
+private fun cardKey(recommendation: Recommendation?): String = when (recommendation) {
+    is Recommendation.Nap -> "nap-${recommendation.minutes}"
+    is Recommendation.Breathing -> "breathing-${recommendation.minutes}"
+    is Recommendation.ChooseDuration -> "choose"
+    Recommendation.None, null -> "pick"
+}
+
+@Composable
+private fun CardContent(
+    recommendation: Recommendation?,
+    state: NapUiState,
+    onStart: (Int?) -> Unit,
+    onDecline: () -> Unit,
+) {
+    when (recommendation) {
+        is Recommendation.Nap -> OfferContent(
+            title = stringResource(R.string.home_offer_nap_title, recommendation.minutes),
+            body = stringResource(
+                R.string.home_offer_nap_body,
+                state.settings.targetPercent,
+                recommendation.remainingChargeMinutes,
+            ),
+            voiceHint = state.voiceAvailable,
+            onStart = { onStart(recommendation.minutes) },
+            onDecline = onDecline,
+        )
+        is Recommendation.Breathing -> OfferContent(
+            title = stringResource(R.string.home_offer_breathing_title, recommendation.minutes),
+            body = stringResource(R.string.home_offer_breathing_body),
+            voiceHint = state.voiceAvailable,
+            onStart = { onStart(recommendation.minutes) },
+            onDecline = onDecline,
+        )
+        is Recommendation.ChooseDuration -> ChooseContent(
+            options = recommendation.options,
+            onStart = onStart,
+            onDecline = onDecline,
+        )
+        Recommendation.None, null -> PickContent(state = state, onStart = onStart)
+    }
+}
+
+/**
+ * 잔량 고리 + 충전 상태 + 목표까지 남은 시간.
+ * 고리는 홈이 나타날 때 0에서 잔량까지 차오르고, 숫자는 같은 값을 정수로 세어 올라간다. 충전 중이면 고리 끝이 은은하게 맥동한다.
+ */
 @Composable
 private fun ChargeSummary(state: NapUiState, modifier: Modifier = Modifier) {
     val charging = state.chargingState == ChargingState.CHARGING
     val chargeTone = charging || state.chargingState == ChargingState.COMPLETE
+    // 첫 프레임에는 0을 목표로 두었다가 바로 잔량으로 바꿔 차오르게 한다. 미리보기에서는 처음부터 잔량이다.
+    var filled by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { filled = true }
+    val percent = state.batteryPercent
+    val showFull = filled || LocalInspectionMode.current
+    val fill = animateFloatAsState(
+        targetValue = if (showFull && percent != null) percent.coerceIn(0, 100).toFloat() else 0f,
+        animationSpec = tween(RING_FILL_MILLIS, easing = NapMotion.Enter),
+        label = "batteryFill",
+    )
     Column(
         modifier = modifier,
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -135,19 +211,21 @@ private fun ChargeSummary(state: NapUiState, modifier: Modifier = Modifier) {
     ) {
         Box(Modifier.size(272.dp), contentAlignment = Alignment.Center) {
             ChargeRing(
-                percent = state.batteryPercent,
+                percent = percent,
                 chargingState = state.chargingState,
                 targetPercent = state.settings.targetPercent,
                 modifier = Modifier.fillMaxSize(),
+                fill = { fill.value },
+                pulse = charging,
             )
             Row(verticalAlignment = Alignment.Bottom) {
                 Text(
-                    text = state.batteryPercent?.toString() ?: stringResource(R.string.value_unknown),
+                    text = if (percent != null) fill.value.roundToInt().toString() else stringResource(R.string.value_unknown),
                     style = NapType.Hero,
                     color = NapColors.TextPrimary,
                     modifier = Modifier.alignByBaseline(),
                 )
-                if (state.batteryPercent != null) {
+                if (percent != null) {
                     Spacer(Modifier.width(6.dp))
                     Text(
                         text = stringResource(R.string.unit_percent),

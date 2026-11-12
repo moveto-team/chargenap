@@ -30,6 +30,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
@@ -50,6 +51,10 @@ import com.chargenap.app.ui.theme.ChargeNapTheme
 import com.chargenap.app.ui.theme.DesignCanvas
 import com.chargenap.app.ui.theme.NapColors
 import com.chargenap.app.ui.theme.NapType
+import com.chargenap.app.ui.theme.animatedCount
+import com.chargenap.app.ui.theme.entrance
+import com.chargenap.app.ui.theme.rememberEntrance
+import com.chargenap.app.ui.theme.smoothStep
 import com.chargenap.app.ui.wakeReasonShortLabel
 import java.time.Instant
 import java.time.LocalDate
@@ -85,20 +90,27 @@ fun ReportScreen(
                     modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
                     horizontalArrangement = Arrangement.spacedBy(20.dp),
                 ) {
+                    val countIn = rememberEntrance(durationMillis = 480)
+                    val minutesIn = rememberEntrance(delayMillis = STAGGER_MILLIS, durationMillis = 480)
+                    val count = animatedCount(report.sessionCount, delayMillis = 100)
+                    val minutes = animatedCount(report.totalMinutes, delayMillis = 100 + STAGGER_MILLIS)
                     StatTile(
                         label = stringResource(R.string.report_week_count),
-                        value = report.sessionCount.toString(),
+                        value = count.toString(),
+                        finalValue = report.sessionCount.toString(),
                         unit = stringResource(R.string.unit_count),
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        modifier = Modifier.weight(1f).fillMaxHeight().entrance(countIn, rise = 20.dp),
                     )
                     StatTile(
                         label = stringResource(R.string.report_week_minutes),
-                        value = report.totalMinutes.toString(),
+                        value = minutes.toString(),
+                        finalValue = report.totalMinutes.toString(),
                         unit = stringResource(R.string.unit_minutes),
-                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        modifier = Modifier.weight(1f).fillMaxHeight().entrance(minutesIn, rise = 20.dp),
                     )
                 }
-                NapCard(Modifier.fillMaxWidth().weight(1f)) {
+                val chartIn = rememberEntrance(delayMillis = 2 * STAGGER_MILLIS, durationMillis = 480)
+                NapCard(Modifier.fillMaxWidth().weight(1f).entrance(chartIn, rise = 20.dp)) {
                     Column(Modifier.fillMaxSize()) {
                         Text(
                             text = stringResource(R.string.report_chart_title),
@@ -115,7 +127,8 @@ fun ReportScreen(
                     }
                 }
             }
-            NapCard(Modifier.weight(1f).fillMaxHeight()) {
+            val listIn = rememberEntrance(delayMillis = STAGGER_MILLIS, durationMillis = 480)
+            NapCard(Modifier.weight(1f).fillMaxHeight().entrance(listIn, rise = 20.dp)) {
                 if (recentRecords.isEmpty()) {
                     EmptyHistory()
                 } else {
@@ -129,6 +142,7 @@ fun ReportScreen(
 /**
  * 날짜별 쉰 시간 막대 7개. 마지막(오른쪽)이 오늘이다. 막대는 Canvas로 직접 그린다.
  * 가장 긴 날을 기준으로 높이를 정하고, 쉰 적이 없는 날은 바닥에 짧은 표시만 남긴다.
+ * 화면이 나타나면 막대가 왼쪽부터 차례로 바닥에서 자라고, 다 자란 막대 위에 분이 나타난다.
  */
 @Composable
 private fun WeekChart(perDayMinutes: List<Int>, todayEpochDay: Long, modifier: Modifier = Modifier) {
@@ -142,6 +156,10 @@ private fun WeekChart(perDayMinutes: List<Int>, todayEpochDay: Long, modifier: M
             Row(Modifier.fillMaxSize(), verticalAlignment = Alignment.Bottom) {
                 days.forEachIndexed { index, minutes ->
                     val today = index == days.lastIndex
+                    val grow = rememberEntrance(
+                        delayMillis = BAR_DELAY_MILLIS + index * BAR_STAGGER_MILLIS,
+                        durationMillis = BAR_GROW_MILLIS,
+                    )
                     Column(
                         modifier = Modifier.weight(1f),
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -153,7 +171,9 @@ private fun WeekChart(perDayMinutes: List<Int>, todayEpochDay: Long, modifier: M
                                 style = NapType.Caption,
                                 color = if (today) NapColors.TextPrimary else NapColors.TextSecondary,
                                 maxLines = 1,
-                                modifier = Modifier.height(VALUE_LABEL_HEIGHT),
+                                modifier = Modifier
+                                    .height(VALUE_LABEL_HEIGHT)
+                                    .graphicsLayer { alpha = smoothStep(0.6f, 1f, grow.value) },
                             )
                         }
                         val barHeight = if (minutes > 0) (barMax * (minutes.toFloat() / maxMinutes)).coerceAtLeast(8.dp) else 4.dp
@@ -163,7 +183,7 @@ private fun WeekChart(perDayMinutes: List<Int>, todayEpochDay: Long, modifier: M
                             // 반투명으로 칠하면 둥근 막대와 아래쪽 덮개가 겹치는 곳이 진해 보여서 미리 섞은 색을 쓴다.
                             else -> lerp(NapColors.Surface, NapColors.Accent, 0.45f)
                         }
-                        Bar(color, Modifier.width(52.dp).height(barHeight))
+                        Bar(color, Modifier.width(52.dp).height(barHeight), grow = { grow.value })
                     }
                 }
             }
@@ -187,12 +207,22 @@ private fun WeekChart(perDayMinutes: List<Int>, todayEpochDay: Long, modifier: M
     }
 }
 
-/** 위쪽 모서리만 둥근 막대. */
+/**
+ * 위쪽 모서리만 둥근 막대. [grow](0~1)만큼 바닥에서 자란 높이로 그린다. 그리기 단계에서만 읽는다.
+ */
 @Composable
-private fun Bar(color: Color, modifier: Modifier = Modifier) {
+private fun Bar(color: Color, modifier: Modifier = Modifier, grow: () -> Float = { 1f }) {
     Canvas(modifier) {
-        val radius = minOf(12.dp.toPx(), size.height / 2f)
-        drawRoundRect(color = color, cornerRadius = CornerRadius(radius, radius))
+        val height = size.height * grow().coerceIn(0f, 1f)
+        if (height <= 0f) return@Canvas
+        val top = size.height - height
+        val radius = minOf(12.dp.toPx(), height / 2f)
+        drawRoundRect(
+            color = color,
+            topLeft = Offset(0f, top),
+            size = Size(size.width, height),
+            cornerRadius = CornerRadius(radius, radius),
+        )
         // 아래쪽 모서리는 바닥선에 붙도록 각지게 덮는다.
         drawRect(color = color, topLeft = Offset(0f, size.height - radius), size = Size(size.width, radius))
     }
@@ -213,8 +243,16 @@ private fun RecentList(records: List<SessionRecord>, zone: ZoneId) {
         Box(Modifier.fillMaxWidth().weight(1f)) {
             LazyColumn(Modifier.fillMaxSize(), state = listState) {
                 itemsIndexed(records) { index, record ->
-                    if (index > 0) Box(Modifier.fillMaxWidth().height(1.dp).background(NapColors.Outline))
-                    RecordRow(record, zone)
+                    // 처음 보이는 몇 줄만 위에서부터 차례로 나타난다. 스크롤해서 새로 보이는 줄은 바로 보인다.
+                    val rowIn = rememberEntrance(
+                        delayMillis = LIST_DELAY_MILLIS + index * LIST_STAGGER_MILLIS,
+                        durationMillis = 420,
+                        enabled = index < ANIMATED_ROWS,
+                    )
+                    Column(Modifier.entrance(rowIn, rise = 14.dp)) {
+                        if (index > 0) Box(Modifier.fillMaxWidth().height(1.dp).background(NapColors.Outline))
+                        RecordRow(record, zone)
+                    }
                 }
             }
             if (canScrollForward) {
@@ -303,6 +341,19 @@ private fun EmptyHistory() {
 }
 
 private val VALUE_LABEL_HEIGHT = 32.dp
+
+/** 위쪽 숫자 타일과 카드들이 떠오르는 간격. */
+private const val STAGGER_MILLIS = 90
+
+/** 막대가 자라기 시작하는 시점, 막대 사이 간격, 한 막대가 자라는 시간. */
+private const val BAR_DELAY_MILLIS = 250
+private const val BAR_STAGGER_MILLIS = 70
+private const val BAR_GROW_MILLIS = 650
+
+/** 최근 목록이 나타나기 시작하는 시점과 줄 사이 간격. 처음 [ANIMATED_ROWS]줄만 움직인다. */
+private const val LIST_DELAY_MILLIS = 200
+private const val LIST_STAGGER_MILLIS = 60
+private const val ANIMATED_ROWS = 8
 
 // ---------------------------------------------------------------- 미리보기
 

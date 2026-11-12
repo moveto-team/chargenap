@@ -40,6 +40,8 @@ sealed interface UiNotice {
  * @param demoControlsAvailable true면 DEMO 조작 패널을 보여 준다
  * @param fallbackReason 실제 차량 연결에 실패해 데모로 대체됐을 때의 사유. 아니면 null
  * @param voiceAvailable true면 홈에 음성 안내 힌트를 보여 준다
+ * @param breathingGuide 수면 중 호흡 안내 구간이면 true. 수면이 시작되면 true가 되고, 엔진의
+ *   `SessionNotice.BreathingGuideFinished`를 받으면 false가 된다(그 뒤로는 백색소음 구간). 수면 화면 표시에만 쓴다
  */
 data class NapUiState(
     val session: NapSessionState = NapSessionState.Idle,
@@ -64,6 +66,7 @@ data class NapUiState(
     val demoControlsAvailable: Boolean = false,
     val fallbackReason: String? = null,
     val voiceAvailable: Boolean = false,
+    val breathingGuide: Boolean = false,
 ) {
     /** 안전 확인부터 중단 안내까지. 이 동안에는 설정·리포트로 이동할 수 없다. */
     val sessionActive: Boolean

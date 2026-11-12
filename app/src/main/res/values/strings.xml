@@ -88,6 +88,8 @@
     <string name="sleep_mode_breathing">호흡 모드</string>
     <string name="sleep_extend">5분 더</string>
     <string name="sleep_wake_now">지금 일어나기</string>
+    <string name="sleep_breathe_in">들이마시고</string>
+    <string name="sleep_breathe_out">내쉬고</string>
 
     <!-- 기상 -->
     <string name="wake_title">일어날 시간이에요</string>
