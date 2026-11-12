@@ -232,7 +232,7 @@ MAU = Pleos Connect 탑재 전기차 수 × 월 1회 이상 급속 충전하는 
 | --- | --- |
 | GitHub 저장소(소스 코드, README) | https://github.com/moveto-team/chargenap |
 | release APK | 저장소 `apk/Moveto_ChargeNap_release.apk` |
-| 시연 영상 | https://github.com/moveto-team/chargenap/releases (v1.0.0 첨부) |
+| 시연 영상 | https://github.com/moveto-team/chargenap/releases (v1.1.0 첨부) |
 | 앱 화면 | 저장소 `docs/screenshots/` |
 | SDK 검증 기록 | 저장소 `docs/sdk-notes.md` |
 | 검증·진행 기록 | 저장소 `docs/progress.md` |

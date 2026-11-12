@@ -10,7 +10,7 @@
 | ![홈: 제안](docs/screenshots/02_home_offer_nap.png) | ![안전 확인](docs/screenshots/10_safety_rear_seat.png) |
 | ![수면](docs/screenshots/20_sleep.png) | ![브리핑](docs/screenshots/31_briefing.png) |
 
-- 시연 영상: [GitHub Releases v1.0.0](https://github.com/moveto-team/chargenap/releases/tag/v1.0.0)
+- 시연 영상: [GitHub Releases v1.1.0](https://github.com/moveto-team/chargenap/releases/tag/v1.1.0)
 - 기획서: [docs/proposal.md](docs/proposal.md)
 - 화면 스냅샷 31장: [docs/screenshots/](docs/screenshots/) (앱의 Compose 화면을 2,560×1,440으로 렌더링한 테스트 결과물)
 
@@ -28,7 +28,7 @@
 
 ## APK 파일 위치
 
-**[`apk/Moveto_ChargeNap_release.apk`](apk/Moveto_ChargeNap_release.apk)** — 서명된 release 빌드(약 42MB). 같은 파일이 [Releases v1.0.0](https://github.com/moveto-team/chargenap/releases/tag/v1.0.0)에도 있습니다.
+**[`apk/Moveto_ChargeNap_release.apk`](apk/Moveto_ChargeNap_release.apk)** — 서명된 release 빌드(약 42MB). 같은 파일이 [Releases v1.1.0](https://github.com/moveto-team/chargenap/releases/tag/v1.1.0)에도 있습니다.
 
 ## 실행 방법
 

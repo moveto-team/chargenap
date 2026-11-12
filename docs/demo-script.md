@@ -1,7 +1,7 @@
 # 시연 영상 대본
 
 제출한 시연 영상(2분 2초, 1920×1080 60fps, 한국어 내레이션)의 구성과 2차 PT 현장 시연 순서입니다.
-영상 파일은 [GitHub Releases v1.0.0](https://github.com/moveto-team/chargenap/releases/tag/v1.0.0)에 있습니다.
+영상 파일은 [GitHub Releases v1.1.0](https://github.com/moveto-team/chargenap/releases/tag/v1.1.0)에 있습니다.
 
 ## 영상이 보여 주는 것 (심사 기준별)
 
