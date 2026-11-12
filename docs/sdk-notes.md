@@ -1219,6 +1219,15 @@ car.disconnect()
 
 ---
 
+## 16-1. 구현 중 SDK 소스에서 추가로 확인한 것 (2026-11-12, vehicle-integration-dev)
+
+- **연결 전 호출 큐는 스레드 안전하지 않다**(`LinkedList`). 확인됨(소스). 연결 전에는 호출을 하나(첫 capability)만 보내고 응답을 받은 뒤 나머지를 보낸다.
+- **`AreaBounds<T>`의 실제 값 타입은 서비스가 알려 준 타입이다.** 선언과 다르면 `ClassCastException`이 날 수 있어 `Number`로 받아 변환한다. 확인됨(소스).
+- **`release()`는 SDK 내부의 bindService 재시도(최대 15초)를 취소하지 않는다.** 확인됨(소스). 앱이 8초에 연결을 포기한 뒤 서비스가 늦게 뜨면 해제된 인스턴스가 바인딩될 수 있다. 앱에서 막을 방법은 없다.
+- 소프트웨어 에뮬레이션(KVM 없음)으로는 Pleos Connect Emulator 2.1.0 이미지가 부팅을 마치지 못한다(차량 HAL 지연 → `carwatchdogd` 크래시 → system_server 재시작 반복). 확인됨(실행, Android Emulator 37.2.13, `-accel off`).
+
+---
+
 ## 17. 출처
 
 공식 문서(본문을 직접 내려받아 읽은 것):
