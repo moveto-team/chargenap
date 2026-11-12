@@ -32,6 +32,17 @@ internal data class AaosSignals(
 }
 
 /**
+ * AAOS `GEAR_SELECTION` 값 → P 여부(docs/sdk-notes.md 13절, `android.car.VehicleGear`).
+ * `GEAR_UNKNOWN`(0)은 "P가 아님"이 아니라 "모름"(null)이다. false로 바꾸면 기어를 잠깐 못 읽은 것을
+ * "P를 벗어남"으로 보고 세션을 중단하게 된다.
+ */
+internal fun aaosGearInPark(gear: Int): Boolean? = when (gear) {
+    VehicleGear.GEAR_UNKNOWN -> null
+    VehicleGear.GEAR_PARK -> true
+    else -> false
+}
+
+/**
  * Pleos Vehicle SDK가 주지 않는 값을 AAOS `CarPropertyManager`로 보강한다(docs/sdk-notes.md 13절).
  * 주차 브레이크, 커넥터 연결, 충전 상태, 남은 충전 시간, 기어(SDK 기어를 못 읽을 때의 대체).
  *
@@ -97,7 +108,7 @@ internal class CarPropertyAdapter(private val context: Context) {
                 chargeState = readInt(propertyManager, usable, Property.CHARGE_STATE),
                 portConnected = readBoolean(propertyManager, usable, Property.PORT_CONNECTED),
                 chargeTimeRemainingSec = readInt(propertyManager, usable, Property.CHARGE_TIME_REMAINING),
-                gearInPark = readInt(propertyManager, usable, Property.GEAR)?.let { it == VehicleGear.GEAR_PARK },
+                gearInPark = readInt(propertyManager, usable, Property.GEAR)?.let(::aaosGearInPark),
                 parkingBrakeOn = readBoolean(propertyManager, usable, Property.PARKING_BRAKE),
             )
         } catch (t: Throwable) {

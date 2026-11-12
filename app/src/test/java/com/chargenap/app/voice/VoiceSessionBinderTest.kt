@@ -491,6 +491,83 @@ class VoiceSessionBinderTest {
     }
 
     @Test
+    fun rearSeatAnswer_beforeQuestionSpoken_isIgnored() = runTest {
+        val h = harness()
+        toOffer(h)
+
+        // 화면의 [시작]과 동시에 말한 "아니요"가 뒷좌석 질문보다 먼저 도착한다
+        h.engine.requestStart(20)
+        assertTrue(h.voice.hear("아니요"))
+        runCurrent()
+        assertTrue(
+            "묻기 전에 들은 말은 뒷좌석 답이 아니다",
+            h.stateAs<NapSessionState.SafetyCheck>().rearSeatQuestionPending,
+        )
+        assertEquals("rear:question", h.spoken.last())
+        advance(SPEAK_MILLIS)
+        assertTrue(h.stateAs<NapSessionState.SafetyCheck>().rearSeatQuestionPending)
+        assertTrue(h.fake.commandLog.isEmpty())
+
+        // 질문을 다 말한 뒤의 답은 받는다
+        say(h, "없어요")
+        assertEquals(NapSessionState.Preparing(20, SessionMode.NAP, seatConsent = true), h.state)
+    }
+
+    @Test
+    fun doorAnswer_beforeQuestionSpoken_isIgnored() = runTest {
+        val h = harness(config = SessionConfig(seatControlEnabled = false))
+        h.fake.setDoorReadable(false)
+        toOffer(h)
+
+        h.engine.requestStart(20)
+        assertTrue(h.voice.hear("응"))
+        runCurrent()
+        assertTrue(
+            "묻기 전에 들은 \"응\"은 도어 확인이 아니다",
+            h.stateAs<NapSessionState.SafetyCheck>().doorConfirmPending,
+        )
+        assertEquals("door:question", h.spoken.last())
+        advance(SPEAK_MILLIS)
+        assertTrue(h.stateAs<NapSessionState.SafetyCheck>().doorConfirmPending)
+        assertTrue(h.fake.commandLog.isEmpty())
+
+        say(h, "네 닫혀 있어요")
+        assertFalse(h.state is NapSessionState.SafetyCheck)
+        assertTrue("applyNap(0,23.0,2)" in h.fake.commandLog)
+    }
+
+    @Test
+    fun rearSeat_askedAgain_afterDoorOpensAndCloses() = runTest {
+        val h = harness()
+        h.fake.setDoorReadable(false)
+        toRearSeatQuestion(h)
+        say(h, "없어요")
+        assertTrue(h.stateAs<NapSessionState.SafetyCheck>().doorConfirmPending)
+        advance(SPEAK_MILLIS)                    // 도어 질문을 다 말했다
+
+        // 뒷문이 열렸다: 동의가 무효가 되고 대기 안내만 한다
+        h.fake.setDoorOpen(true)
+        h.fake.setDoorReadable(true)
+        runCurrent()
+        assertFalse(h.stateAs<NapSessionState.SafetyCheck>().rearSeatQuestionPending)
+        assertEquals("wait:door", h.spoken.last())
+        advance(SPEAK_MILLIS)
+        say(h, "응")                              // 이제는 도어 질문에 대한 답이 아니다
+        assertTrue(h.state is NapSessionState.SafetyCheck)
+
+        // 문이 닫히면 뒷좌석을 처음부터 다시 묻는다
+        h.fake.setDoorOpen(false)
+        runCurrent()
+        assertTrue(h.stateAs<NapSessionState.SafetyCheck>().rearSeatQuestionPending)
+        assertEquals(2, h.count("rear:question"))
+        advance(SPEAK_MILLIS)
+        assertTrue(h.fake.commandLog.isEmpty())
+
+        say(h, "없어요")
+        assertEquals(NapSessionState.Preparing(20, SessionMode.NAP, seatConsent = true), h.state)
+    }
+
+    @Test
     fun safetyCheck_stop_cancelsWithoutTouchingCabin() = runTest {
         val h = harness()
         toRearSeatQuestion(h)

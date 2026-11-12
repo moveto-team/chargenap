@@ -75,7 +75,10 @@ sealed interface NapSessionState {
     data class Offer(val recommendation: Recommendation) : NapSessionState
 
     /**
-     * @param rearSeatQuestionPending true면 "뒷좌석에 사람이나 짐이 있나요?"의 답을 기다리는 중
+     * 확인을 받은 뒤 도어가 열리면 뒷좌석 답과 "문 닫았어요" 확인은 무효가 되고, 도어가 닫히면 다시 묻는다.
+     *
+     * @param rearSeatQuestionPending true면 "뒷좌석에 사람이나 짐이 있나요?"의 답을 기다리는 중.
+     *   도어 열림·주차 브레이크 대기([SafetyReport.mustWait]) 중에는 false이고 대기가 풀리면 true가 된다
      * @param doorConfirmPending true면 도어 값을 읽지 못해 사용자의 "문 닫았어요" 확인을 기다리는 중
      */
     data class SafetyCheck(

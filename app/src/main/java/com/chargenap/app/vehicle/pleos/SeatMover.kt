@@ -4,6 +4,7 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
+import kotlin.math.abs
 
 /** 등받이 모터에 보내는 명령. SDK `MoveControl`과의 대응은 SDK 쪽 포트 구현이 한 곳에서 정한다. */
 internal enum class SeatCommand { RECLINE, RAISE, STOP }
@@ -28,7 +29,22 @@ internal data class SeatMoveLimits(
     val stallTimeoutMs: Long = 2_000,
     /** 이동 한 번의 전체 제한 시간. */
     val totalTimeoutMs: Long = 20_000,
-)
+    /** 정지 명령 뒤 이 간격으로 위치를 다시 읽어 멈췄는지 본다. 움직이고 있으면 정지 명령을 다시 보낸다. */
+    val stopCheckIntervalMs: Long = 500,
+    /** 정지를 확인하려고 정지 명령을 다시 보내는 최대 시간. */
+    val stopConfirmTimeoutMs: Long = 10_000,
+) {
+    companion object {
+        /** 눕히기. 이상하면 빨리 멈춘다. */
+        val RECLINE = SeatMoveLimits()
+
+        /**
+         * 세우기(복구). 운전 자세로 돌아가는 것이 더 중요하므로 느리거나 잠깐 머뭇거리는 시트도 더 기다린다.
+         * 방향 불일치·정지 확인 같은 다른 안전장치는 눕히기와 같다.
+         */
+        val RESTORE = SeatMoveLimits(stallTimeoutMs = 4_000, totalTimeoutMs = 45_000)
+    }
+}
 
 /**
  * @param moved 위치가 실제로 변했는지
@@ -46,6 +62,7 @@ internal object SeatMoveErrors {
     const val NO_RESPONSE = "응답 없음"
     const val TIMED_OUT = "시간 초과"
     const val STOP_FAILED = "정지 명령 실패"
+    const val STOP_UNCONFIRMED = "정지 확인 실패"
     const val MOVE_REJECTED = "이동 명령 실패"
 }
 
@@ -57,9 +74,10 @@ internal object SeatMoveErrors {
  * 2. [SeatMoveLimits.stallTimeoutMs] 동안 위치 변화가 없으면 정지("응답 없음")
  * 3. [SeatMoveLimits.totalTimeoutMs]가 지나면 정지("시간 초과")
  * 4. [abortReason]이 사유를 돌려주면 정지(도어 열림 등)
- * 5. 코루틴이 취소되면 정지 명령을 보낸 뒤 취소를 전파
+ * 5. 코루틴이 취소되면 정지를 확인한 뒤 취소를 전파
  *
- * 이동 명령을 한 번이라도 보냈으면 어떤 경로로 끝나든 `finally`에서 정지 명령을 보낸다.
+ * 이동 명령을 한 번이라도 보냈으면 어떤 경로로 끝나든(도착, 오류, 취소) `finally`에서 [stopUntilSettled]로
+ * 정지 명령을 보내고 위치가 멈췄는지 확인한다. 끝내 확인하지 못하면 "정지 확인 실패"를 결과 오류에 넣는다.
  */
 internal suspend fun runSeatMove(
     port: BackrestPort,
@@ -70,7 +88,7 @@ internal suspend fun runSeatMove(
 ): SeatMoveResult {
     val errors = mutableListOf<String>()
     var last = plan.start
-    var stopError: String? = null
+    var stop: StopOutcome? = null
     var commandAttempted = false
     try {
         commandAttempted = true
@@ -112,14 +130,55 @@ internal suspend fun runSeatMove(
         }
     } finally {
         if (commandAttempted) {
-            // 취소된 코루틴에서도 정지 명령은 끝까지 보낸다. 실패하면 한 번 더 보낸다.
-            stopError = withContext(NonCancellable) {
-                port.command(SeatCommand.STOP)?.let { port.command(SeatCommand.STOP) }
-            }
+            // 취소된 코루틴에서도 정지는 끝까지 확인한다
+            stop = withContext(NonCancellable) { stopUntilSettled(port, limits, nowMs, plan.tolerance) }
         }
     }
-    stopError?.let { errors += "${SeatMoveErrors.STOP_FAILED}: $it" }
-    // 정지 뒤 관성으로 조금 더 움직일 수 있어 한 번 더 읽는다
-    val settled = port.readPosition() ?: port.position.value ?: last
+    stop?.let { outcome ->
+        if (!outcome.confirmed) {
+            errors += SeatMoveErrors.STOP_UNCONFIRMED
+            outcome.lastRejection?.let { errors += "${SeatMoveErrors.STOP_FAILED}: $it" }
+        }
+    }
+    // 정지 뒤 관성으로 조금 더 움직일 수 있어 정지 확인에서 마지막으로 읽은 위치를 쓴다
+    val settled = stop?.position ?: port.readPosition() ?: port.position.value ?: last
     return SeatMoveResult(moved = last != plan.start || settled != plan.start, errors = errors)
 }
+
+/**
+ * @param confirmed 정지 명령이 받아들여졌고 그 뒤 위치가 멈춘 것을 확인했는지
+ * @param position 마지막으로 읽은 위치
+ * @param lastRejection 마지막 정지 명령이 거절됐으면 그 사유
+ */
+private class StopOutcome(val confirmed: Boolean, val position: Int?, val lastRejection: String?)
+
+/**
+ * 정지 명령을 보내고 [SeatMoveLimits.stopCheckIntervalMs]마다 위치를 다시 읽는다.
+ * 정지 명령이 받아들여졌고 그 사이 위치 변화가 [tolerance] 이하면 정지를 확인한 것이다.
+ * 아니면(위치가 계속 바뀌거나 명령이 거절됨) 정지 명령을 다시 보낸다. [SeatMoveLimits.stopConfirmTimeoutMs]가
+ * 지나도 확인하지 못하면 그만둔다.
+ *
+ * 호출자는 `NonCancellable` 안에서 부른다(취소된 이동도 정지를 확인해야 한다).
+ */
+private suspend fun stopUntilSettled(
+    port: BackrestPort,
+    limits: SeatMoveLimits,
+    nowMs: () -> Long,
+    tolerance: Int,
+): StopOutcome {
+    val deadline = nowMs() + limits.stopConfirmTimeoutMs
+    var rejection = port.command(SeatCommand.STOP)
+    var previous = currentPosition(port)
+    while (true) {
+        delay(limits.stopCheckIntervalMs)
+        val position = currentPosition(port)
+        val still = position != null && previous != null && abs(position.toLong() - previous) <= tolerance
+        if (rejection == null && still) return StopOutcome(confirmed = true, position = position, lastRejection = null)
+        if (nowMs() >= deadline) return StopOutcome(confirmed = false, position = position ?: previous, lastRejection = rejection)
+        previous = position ?: previous
+        rejection = port.command(SeatCommand.STOP)
+    }
+}
+
+/** 직접 조회한 위치. 조회가 실패하면 구독으로 받은 최신 값. */
+private suspend fun currentPosition(port: BackrestPort): Int? = port.readPosition() ?: port.position.value
