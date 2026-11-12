@@ -1228,6 +1228,18 @@ car.disconnect()
 
 ---
 
+## 16-2. Pleos Connect Emulator 2.1.0 실행 관찰 (2026-11-12, Windows WHPX)
+
+- 기기 정보: `wm size` 2560x1440, `wm density` 160, `ro.build.display.id` RELEASE.release_connect_v2.1.0, Android 14, 기본 로케일 ko-KR. 앱은 사용자 10(`u10`)에서 실행된다. 확인됨(실행).
+- 앱의 `Vehicle.initialize()` 후 VehicleService(`ai.pleos.playground.service.vehicle`) 프로세스가 콜드 스타트되는 데 13~25초 걸렸다(부하가 높은 환경). 앱이 연결을 끊으면 서비스는 `onUnbind` 후 종료된다. 확인됨(실행).
+- VehicleService 로그 `isActive false`: 서비스가 요청을 내부 큐에 쌓고 처리하지 않는 상태. 이때 앱의 capability 요청은 응답이 오지 않는다. 확인됨(실행).
+- 위 상태의 원인으로 관찰한 것: Android `car_service`가 준비되지 않음(`car_service not ready, waited for car service (ms):8015000`, `cmd: Can't find service: car_service`). 부팅 직후 Pleos Rust SDV 서비스들이 `App::new`에서 패닉(SIGABRT)으로 반복 종료됐다. 확인됨(실행). 이 PC에서만의 문제인지는 확인 불가.
+- Virtual Console HTTP API: 쓰기는 `PUT`, 브라우저 세션 하트비트(`POST /browser/session?client=<id>`, 1초 주기)가 없으면 `{"error":"emulator_inactive"}`. 엔드포인트와 파라미터는 `GET /vehicle/catalog`의 `write_endpoint`·`control`에 있다. 전원 상태는 `PUT /vehicle/power-system/simulator?state=On&area_id=0`. 확인됨(실행).
+- 음성: 설치된 TTS 서비스는 CAAS(`ai.pleos.playground.caas`)뿐이고, `Mode.ON_DEVICE`로 초기화하면 TTS·STT 모두 `ON_DEVICE_ENGINE_ERROR`. 확인됨(실행).
+- `-gpu host`에서는 `screencap`이 흰 화면을 돌려준다. `-gpu swiftshader_indirect`에서는 정상. 확인됨(실행).
+
+---
+
 ## 17. 출처
 
 공식 문서(본문을 직접 내려받아 읽은 것):

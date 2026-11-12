@@ -63,6 +63,8 @@ android {
             isReturnDefaultValues = true
             all {
                 it.maxHeapSize = "1024m"
+                // 시연 영상 프레임 생성(DemoVideoFrames)은 -Pchargenap.video=true 일 때만 실행한다.
+                it.systemProperty("chargenap.video", (project.findProperty("chargenap.video") ?: "false").toString())
             }
         }
     }

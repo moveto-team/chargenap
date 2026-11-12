@@ -83,7 +83,8 @@ def table(rows: list[list[str]]) -> str:
     ]
     for r_i, row in enumerate(rows):
         header = r_i == 0
-        tr = ['<w:tr><w:trPr><w:cantSplit/>' + ('<w:tblHeader/>' if header else '') + '</w:trPr>']
+        # 답변란 셀 안의 표는 행을 쪽 사이에서 나눌 수 있게 둔다(막으면 Word가 답변란 전체를 다음 쪽으로 민다).
+        tr = ['<w:tr><w:trPr>' + ('<w:tblHeader/>' if header else '') + '</w:trPr>']
         for c in range(ncols):
             cell = row[c] if c < len(row) else ""
             shade = '<w:shd w:val="clear" w:color="auto" w:fill="EEF2F7"/>' if header else ""
