@@ -109,6 +109,42 @@ class FakeVehicleGatewayTest {
     }
 
     @Test
+    fun restartWhenNearlyFull_startChargingBeginsNewCharge() = runTest {
+        val fake = FakeVehicleGateway(
+            manual.copy(startPercent = 52, restartWhenNearlyFull = true), timeScale = 1.0, scope = backgroundScope,
+        )
+        fake.start()
+        fake.startCharging()
+        assertEquals(52, fake.batteryPercent.value)
+
+        // 충전 중에는 다시 눌러도 잔량을 되돌리지 않는다
+        fake.setBatteryPercent(70)
+        fake.startCharging()
+        assertEquals(70, fake.batteryPercent.value)
+
+        // 다 찬 뒤 다시 시작하면 새 충전
+        fake.completeCharging()
+        assertEquals(ChargingState.COMPLETE, fake.chargingState.value)
+        fake.startCharging()
+        assertEquals(52, fake.batteryPercent.value)
+        assertEquals(ChargingState.CHARGING, fake.chargingState.value)
+
+        // 넉넉히 남았을 때 멈췄다 시작하면 이어서 충전
+        fake.setBatteryPercent(60)
+        fake.interruptCharging()
+        fake.startCharging()
+        assertEquals(60, fake.batteryPercent.value)
+    }
+
+    @Test
+    fun withoutRestartFlag_startChargingAtTargetIsComplete() = runTest {
+        val fake = FakeVehicleGateway(manual.copy(startPercent = 80), timeScale = 1.0, scope = backgroundScope)
+        fake.startCharging()
+        assertEquals(80, fake.batteryPercent.value)
+        assertEquals(ChargingState.COMPLETE, fake.chargingState.value)
+    }
+
+    @Test
     fun unreadableGearAndDoor_areNull() = runTest {
         val fake = FakeVehicleGateway(manual, timeScale = 1.0, scope = backgroundScope)
         fake.setGearReadable(false)

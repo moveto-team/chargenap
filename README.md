@@ -10,7 +10,7 @@
 | ![홈: 제안](docs/screenshots/02_home_offer_nap.png) | ![안전 확인](docs/screenshots/10_safety_rear_seat.png) |
 | ![수면](docs/screenshots/20_sleep.png) | ![브리핑](docs/screenshots/31_briefing.png) |
 
-화면 이미지는 앱의 Compose 화면을 2,560×1,440으로 렌더링한 단위 테스트 스냅샷입니다(`docs/screenshots/`, 30장).
+화면 이미지는 앱의 Compose 화면을 2,560×1,440으로 렌더링한 단위 테스트 스냅샷입니다(`docs/screenshots/`, 31장).
 
 ## 무엇을 하나요
 
@@ -41,7 +41,7 @@ adb shell am start -n com.chargenap.app/.MainActivity
 
 - **Pleos Connect 에뮬레이터**에서는 실제 차량 서비스(Vehicle Service)에 연결해 동작합니다.
 - Vehicle Service가 없는 기기(일반 에뮬레이터 등)에서는 자동으로 **데모 모드(가상 차량)** 로 실행되고 화면 상단에 `DEMO` 배지가 뜹니다.
-- 설정 화면에서 데모 모드를 직접 켤 수도 있습니다. 데모 모드는 60배속이라 20분 세션이 20초에 재생되고, 화면 위쪽 "DEMO 조작" 패널로 충전 중단·도어 열림·기어 변경을 재현할 수 있습니다.
+- 설정 화면에서 데모 모드를 직접 켤 수도 있습니다. 데모 모드는 60배속이라 20분 세션이 20초에 재생되고, 화면 위쪽 "DEMO 조작" 패널로 충전 중단·도어 열림·기어 변경을 재현할 수 있습니다. 가상 충전이 끝난 뒤 패널의 [충전 시작]을 누르면 52%부터 새 충전이 시작되어 앱을 다시 켜지 않고도 시연을 반복할 수 있습니다.
 
 ### 소스에서 빌드
 
@@ -49,7 +49,7 @@ adb shell am start -n com.chargenap.app/.MainActivity
 scripts/bootstrap-toolchain.sh     # JDK 17, Android SDK를 홈 디렉터리에 설치 (sudo 불필요, 이미 있으면 생략)
 source scripts/env.sh
 ./gradlew assembleDebug            # 디버그 APK
-./gradlew testDebugUnitTest        # 단위 테스트 388개
+./gradlew testDebugUnitTest        # 단위 테스트 391개
 scripts/package-release.sh         # 서명된 release APK → apk/
 ```
 
@@ -83,8 +83,9 @@ Virtual Console에서 **Gear Selection = P, Charge Switch = On**으로 두고 **
 
 | 검증 | 상태 |
 | --- | --- |
-| 단위 테스트 388개 (세션 엔진, 추정기, 안전 가드, 차량 값 변환, 음성 해석, 화면 상호작용, 통합) | 통과 |
-| 화면 스냅샷 30장 (2,560×1,440 및 21:9, 4:3) | 잘림·겹침 없음 확인 |
+| 단위 테스트 391개 (세션 엔진, 추정기, 안전 가드, 차량 값 변환, 음성 해석, 화면 상호작용, 통합) | 통과 |
+| 앱 실행 스모크 테스트: 실제 `MainActivity`·`AppContainer`로 띄워, 차량 서비스가 없을 때 데모로 대체되고 제안이 뜨는지 (JVM, Robolectric) | 통과 |
+| 화면 스냅샷 31장 (2,560×1,440 및 21:9, 4:3) | 잘림·겹침 없음 확인 |
 | 가상 차량으로 제안→수면→기상→브리핑, 도어 열림·기어 변경·충전 중단 | 단위 테스트로 통과 |
 | release APK 빌드·서명 | 완료 |
 | **Pleos Connect 에뮬레이터에서의 실행** | **아직 못 함.** 개발 머신에 하드웨어 가속 권한이 없어 에뮬레이터가 부팅되지 않았습니다. 실제 SDK 호출 코드는 SDK 공개 소스·선언과 대조하고 컴파일까지 확인한 상태이며, 에뮬레이터에서 확인할 항목은 `docs/sdk-notes.md` 16절과 `docs/progress.md`에 정리했습니다 |

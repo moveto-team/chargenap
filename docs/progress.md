@@ -36,7 +36,8 @@
 | 항목 | 방법 | 결과 |
 | --- | --- | --- |
 | 빌드 | `./gradlew assembleDebug`, `assembleRelease` | 성공 |
-| 단위 테스트 | `./gradlew testDebugUnitTest` | 388개 통과, 실패 0 |
+| 단위 테스트 | `./gradlew testDebugUnitTest` | 391개 통과, 실패 0 |
+| 앱 실행 스모크 | `MainActivitySmokeTest`: 실제 Application·AppContainer·MainActivity를 띄움(Robolectric). Vehicle Service 없음 → 데모 대체, DEMO 배지, 대체 사유 표시, 제안 표시 | 통과 (`docs/screenshots/00_app_launch_demo_fallback.png`) |
 | 세션 엔진 (5.3 완료 기준) | 정상 흐름, 충전 완료 조기 기상, 충전 중단, 도어 열림, 기어 변경, "5분 더" 허용·거절, 캐빈 일부 실패 | 통과 |
 | 추정기 | SDK 값 우선, 표본 추정, 표본 부족, 증가율 0, 경계값(14→호흡, 15→10분, 27→20분, 45→25분, 10분 미만→제안 없음) | 통과 |
 | 음성 해석기 (5.7) | 킥오프 4.5 예문 전부, 맥락별 "없어요"/"있어요", 한글 숫자 | 통과 |
@@ -87,6 +88,7 @@
 - 계층별로 서브에이전트가 각자 git worktree에서 구현하고 메인 세션이 병합했다. 계획과 계약은 `docs/superpowers/plans/2026-11-11-chargenap.md`.
 - 데모 배속(60배)에서 기상 바람·중단 화면이 눈에 보이도록 체감 구간 길이를 `SessionTimings`로 분리했다.
 - 음성·화면 담당이 한 번 중단되어(사용량 한도) 남은 작업물을 이어받아 완성했다.
+- 앱 실행 스모크 테스트를 쓰다가 데모의 한계를 발견해 고쳤다: 60배속에서는 제안이 18초쯤만 떠 있고 가상 충전이 80%에서 끝나면 재시연이 안 됐다. 데모 모드에서 [충전 시작]을 누르면 새 충전(52%부터)이 시작되게 했다.
 
 ### 알려진 한계
 

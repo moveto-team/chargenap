@@ -17,6 +17,9 @@ import kotlin.math.ceil
  * @param autoStartChargingAfterMillis [FakeVehicleGateway.start] 뒤 이 시간이 지나면 충전을 시작한다.
  *   null이면 [FakeVehicleGateway.startCharging]을 직접 불러야 한다(단위 테스트용).
  * @param reportsRemainingTime true면 SDK가 남은 충전 시간을 주는 차량을 흉내 낸다.
+ * @param restartWhenNearlyFull true면 목표 잔량까지 [RESTART_MARGIN_PERCENT]% 이내로 남았을 때
+ *   [FakeVehicleGateway.startCharging]이 잔량을 [startPercent]로 되돌려 새 충전을 시작한다.
+ *   데모를 앱 재시작 없이 다시 보여 주기 위한 것이다.
  */
 data class FakeScenario(
     val startPercent: Int = 52,
@@ -25,7 +28,12 @@ data class FakeScenario(
     val autoStartChargingAfterMillis: Long? = 3_000,
     val reportsRemainingTime: Boolean = false,
     val rangeKmPerPercent: Double = 4.5,
-)
+    val restartWhenNearlyFull: Boolean = false,
+) {
+    companion object {
+        const val RESTART_MARGIN_PERCENT = 15
+    }
+}
 
 data class FakeClimate(val temperatureC: Float, val fanLevel: Int)
 
@@ -141,6 +149,13 @@ class FakeVehicleGateway(
     // ---- DemoVehicleControls ----
 
     override fun startCharging() {
+        if (scenario.restartWhenNearlyFull && _chargingState.value != ChargingState.CHARGING) {
+            val current = _batteryPercent.value
+            if (current == null || current >= scenario.targetPercent - FakeScenario.RESTART_MARGIN_PERCENT) {
+                _batteryPercent.value = scenario.startPercent
+                fraction = 0.0
+            }
+        }
         val percent = _batteryPercent.value
         _chargingState.value =
             if (percent != null && percent >= scenario.targetPercent) ChargingState.COMPLETE else ChargingState.CHARGING

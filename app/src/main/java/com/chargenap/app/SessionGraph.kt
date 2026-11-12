@@ -63,7 +63,7 @@ class SessionGraphManager(
     private val onSessionCompleted: suspend (SessionSummary) -> Unit,
     private val attachExtras: (SessionGraph) -> (() -> Unit) = { {} },
     private val baseClock: Clock = SystemClock,
-    private val demoScenario: FakeScenario = FakeScenario(),
+    private val demoScenario: FakeScenario = FakeScenario(restartWhenNearlyFull = true),
     private val demoTimeScale: Double = DEMO_TIME_SCALE,
 ) {
     private val _graph = MutableStateFlow<SessionGraph?>(null)
