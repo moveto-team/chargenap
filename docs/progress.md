@@ -16,6 +16,7 @@
 | 7. 음성 | 구현 완료, **실행 검증 미완** | 에뮬레이터에 온디바이스 음성 엔진 없음 |
 | 8. 완성도 | 완료 | 2,560×1,440 스냅샷 31장, 리포트, 설정 저장, 포그라운드 서비스 |
 | 9. 최종 검증 | 단위 테스트·코드 리뷰 완료 | 에뮬레이터 시나리오(실차 값)와 20분 실제 길이 세션은 2차 PT 전 과제 |
+| 개발 서버 이전 | 준비 완료 (2026-11-13) | Vultr 서버용 설치·이전 스크립트(`scripts/server/`)와 절차(`docs/server-setup.md`). 남은 작업은 `docs/next-steps.md` |
 
 ## 검증 기록
 
@@ -51,7 +52,7 @@
 
 ### 2차 PT 전에 할 일 (실행 검증)
 
-메모리 16GB 이상 PC의 Android Studio에서 AVD(RAM 4GB, cold boot)를 만들고 다음을 확인한다. 명령은 README "실제 차량 연동 확인"과 `scripts/vconsole.sh`.
+KVM이 있는 개발 서버(`docs/server-setup.md`)에서 AVD(RAM 4GB, cold boot)로 다음을 확인한다. 순서·완료 기준·담당 에이전트는 `docs/next-steps.md`. 명령은 README "실제 차량 연동 확인"과 `scripts/vconsole.sh`.
 
 1. 앱 실행 후 연결 성공(배지 없음)·홈에 실제 잔량 표시.
 2. Gear P + Charge Port Open + Charge Switch On + SOC 1%씩 증가 → 제안.
