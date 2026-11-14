@@ -76,8 +76,11 @@ scp ~/chargenap-bundle.tar.gz dev@<서버IP>:~/
 
 ### 3-4. 서버, dev 계정으로
 
+오래 걸리는 설치는 **tmux 안에서** 실행한다. 출력이 몇 분 없으면 중간 네트워크가 SSH 연결을 끊을 수 있고, 끊기면 실행 중이던 스크립트도 같이 죽는다.
+
 ```bash
-ssh dev@<서버IP>
+ssh -o ServerAliveInterval=30 dev@<서버IP>
+tmux new -s setup                  # 끊기면 다시 접속해서 tmux attach -t setup
 git clone https://github.com/moveto-team/chargenap.git ~/workspace/chargenap
 cd ~/workspace/chargenap
 scripts/server/setup-dev.sh --with-emulator        # 툴체인, Gradle 설정, Node, Claude Code, 에뮬레이터(약 20GB)
@@ -114,6 +117,14 @@ scripts/server/emu.sh shot /tmp/home.png
 ```
 
 `./gradlew testDebugUnitTest`는 화면 스냅샷을 `docs/screenshots/`에 다시 쓴다. 글꼴 렌더링이 PC와 달라 PNG가 바뀌어 보일 수 있으니, 화면 코드를 바꾸지 않았다면 커밋 전에 `git checkout docs/screenshots`로 되돌린다.
+
+### 3-7. 막혔을 때
+
+| 증상 | 할 일 |
+| --- | --- |
+| 스크립트 도중 `Connection reset by peer`로 접속이 끊김 | 다시 접속해 `uptime`(재부팅 여부), `free -h`, `sudo dmesg -T \| grep -iE 'out of memory\|killed process'`(메모리 부족)를 본다. 이상이 없으면 네트워크가 끊은 것이다. tmux 안에서 같은 스크립트를 다시 실행한다 — 모든 `scripts/server/` 스크립트는 다시 실행해도 안전하다 |
+| root로 작업해 버림 | `setup-dev.sh`·`import-bundle.sh`는 root에서 멈춘다(Claude Code가 root에서는 권한 확인 생략 모드로 시작하지 않는다). root로 `setup-root.sh dev`를 실행하고 dev 계정에서 처음부터 한다. 번들은 `sudo mv /root/chargenap-bundle.tar.gz /home/dev/ && sudo chown dev: /home/dev/chargenap-bundle.tar.gz`. dev 쪽 확인이 끝나면 root 쪽 사본(`/root/workspace/chargenap`, `/root/workspace/chargenap-film`, `/root/.chargenap`)은 서명 키가 들어 있으니 지운다 |
+| dev 계정으로 SSH 접속이 안 됨 | 서버를 만들 때 SSH 키를 등록하지 않은 경우다. 로컬 PC에서 `ssh-copy-id root@<서버IP>` 후 `setup-root.sh dev`를 다시 실행한다 |
 
 ## 4. 서버에서 일하는 법
 

@@ -94,7 +94,9 @@ EOF
     log "경고: sshd 설정 검사 실패 — SSH 설정을 바꾸지 않았다"
   fi
 else
-  log "주의: SSH 공개키가 없어 비밀번호 로그인을 그대로 둔다. 공개키를 등록한 뒤 이 스크립트를 다시 실행하라"
+  log "주의: root에 SSH 공개키가 없다. 비밀번호 로그인을 그대로 두며, $DEV_USER 계정은 아직 SSH로 접속할 수 없다."
+  log "  로컬 PC에서: ssh-keygen -t ed25519   (키가 없을 때)  →  ssh-copy-id root@<서버IP>"
+  log "  그다음 이 스크립트를 다시 실행하면 키를 $DEV_USER 에게 복사하고 비밀번호 로그인을 끈다. 당장은 root에서 'su - $DEV_USER'"
 fi
 
 cat <<EOF

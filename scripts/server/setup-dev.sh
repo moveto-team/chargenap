@@ -10,6 +10,16 @@
 #   --with-emulator  Pleos Connect Emulator 이미지(내려받기 약 4GB, 풀면 약 20GB)와 AVD를 설치한다. /dev/kvm이 있어야 쓸모가 있다
 #   --with-ccam      여러 Claude 계정을 오가는 ccam을 설치한다(로컬 PC에서 쓰던 방식)
 set -euo pipefail
+if [ "$(id -u)" -eq 0 ] && [ "${ALLOW_ROOT:-0}" != "1" ]; then
+  cat >&2 <<'EOF'
+root로 실행하지 마세요.
+  - Claude Code는 root에서 권한 확인 생략 모드(--dangerously-skip-permissions)로 시작하지 않습니다.
+  - 툴체인·서명 키·Claude 메모리가 /root 아래에 생겨 개발 계정에서 쓸 수 없습니다.
+먼저 root로 'bash scripts/server/setup-root.sh dev'를 실행하고, dev 계정으로 접속해 다시 실행하세요.
+그래도 root로 하려면 앞에 ALLOW_ROOT=1 을 붙입니다.
+EOF
+  exit 1
+fi
 cd "$(dirname "$0")/../.."
 REPO="$(pwd)"
 WITH_EMULATOR=0; WITH_CCAM=0
